@@ -1,0 +1,21 @@
+{
+  "name": "logwatch-analyzer",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AI-powered logwatch analysis with Telegram notifications",
+  "main": "src/analyzer.js",
+  "scripts": {
+    "start": "node src/analyzer.js",
+    "test": "node scripts/test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^16.4.5",
+    "date-fns": "^4.1.0"
+  },
+  "keywords": ["logwatch", "ai", "claude", "telegram", "monitoring"],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(chmod:*)",
+      "Bash(logwatch:*)",
+      "Bash(sudo logwatch:*)",
+      "Bash(node scripts/test.js:*)",
+      "Bash(npm start)",
+      "Bash(cat:*)",
+      "Bash(sqlite3:*)",
+      "Bash(python3:*)",
+      "Bash(./scripts/generate-logwatch.sh:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

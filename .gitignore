@@ -1,0 +1,35 @@
+# Environment variables
+.env
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Logs
+logs/
+*.log
+
+# Database
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test files
+test-output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

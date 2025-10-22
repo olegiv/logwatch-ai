@@ -136,7 +136,7 @@ which logwatch
 | Feature | Linux | macOS |
 |---------|-------|-------|
 | Default logwatch path | `/usr/sbin/logwatch` | `/opt/local/bin/logwatch` |
-| Default output | `/var/cache/logwatch/` | Use `/tmp/` |
+| Default output | `/tmp/` | `/tmp/` |
 | Cron service | `systemd` or `cron` | `launchd` or `cron` |
 | Log locations | `/var/log/*` | `/var/log/*` and system logs |
 

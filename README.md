@@ -140,7 +140,7 @@ crontab -e
 For Linux:
 ```cron
 # Logwatch AI Analyzer - Daily at 6:00 AM
-0 6 * * * cd /opt/logwatch-analyzer && ./scripts/generate-logwatch.sh yesterday && /usr/bin/node src/analyzer.js >> logs/cron.log 2>&1
+0 6 * * * cd /opt/logwatch-analyzer && ./scripts/generate-logwatch.sh yesterday && /usr/local/bin/node src/analyzer.js >> logs/cron.log 2>&1
 ```
 
 For macOS:

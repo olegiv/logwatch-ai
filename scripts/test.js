@@ -7,7 +7,7 @@
 
 import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
-import TelegramBot from 'node-telegram-bot-api';
+import { Bot } from 'grammy';
 import config from '../config/config.js';
 import { getLogger } from '../src/utils/logger.js';
 import Storage from '../src/storage.js';
@@ -205,17 +205,17 @@ async function testTelegramBot() {
 
     console.log('Testing Telegram bot connection...');
 
-    const bot = new TelegramBot(config.telegram.botToken, { polling: false });
+    const bot = new Bot(config.telegram.botToken);
 
     // Get bot info
-    const botInfo = await bot.getMe();
+    const botInfo = await bot.api.getMe();
     printResult('Telegram bot connection', true);
     console.log(`  Bot username: @${botInfo.username}`);
     console.log(`  Bot name: ${botInfo.first_name}`);
 
     // Test sending message
     console.log('Sending test message...');
-    await bot.sendMessage(
+    await bot.api.sendMessage(
       config.telegram.chatId,
       '🧪 *Test Message*\n\nLogwatch AI Analyzer configuration test.',
       { parse_mode: 'Markdown' }

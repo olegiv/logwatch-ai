@@ -30,7 +30,7 @@ class Config {
     };
 
     this.logwatch = {
-      outputPath: process.env.LOGWATCH_OUTPUT_PATH || '/var/cache/logwatch/logwatch.txt',
+      outputPath: process.env.LOGWATCH_OUTPUT_PATH || '/tmp/logwatch-output.txt',
       maxSizeMB: parseInt(process.env.MAX_LOG_SIZE_MB) || 10
     };
 

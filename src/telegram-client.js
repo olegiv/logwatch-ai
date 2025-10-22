@@ -1,4 +1,4 @@
-import TelegramBot from 'node-telegram-bot-api';
+import { Bot } from 'grammy';
 import config from '../config/config.js';
 import { getLogger } from './utils/logger.js';
 import { format } from 'date-fns';
@@ -11,7 +11,7 @@ const logger = getLogger();
  */
 class TelegramClient {
   constructor() {
-    this.bot = new TelegramBot(config.telegram.botToken, { polling: false });
+    this.bot = new Bot(config.telegram.botToken);
     this.chatId = config.telegram.chatId;
     this.maxMessageLength = config.telegram.maxMessageLength;
     this.retryDelay = config.telegram.retryDelay;
@@ -175,7 +175,7 @@ class TelegramClient {
    */
   async sendSingleMessage(message) {
     try {
-      await this.bot.sendMessage(this.chatId, message, {
+      await this.bot.api.sendMessage(this.chatId, message, {
         parse_mode: 'Markdown'
       });
     } catch (error) {
@@ -186,7 +186,7 @@ class TelegramClient {
       await this.sleep(this.retryDelay);
 
       try {
-        await this.bot.sendMessage(this.chatId, message, {
+        await this.bot.api.sendMessage(this.chatId, message, {
           parse_mode: 'Markdown'
         });
       } catch (retryError) {

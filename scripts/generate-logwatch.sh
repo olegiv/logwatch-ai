@@ -11,7 +11,15 @@ set -e
 # Configuration
 OUTPUT_FILE="${LOGWATCH_OUTPUT_PATH:-/tmp/logwatch-output.txt}"
 RANGE="${1:-yesterday}"
-LOGWATCH_BIN="/opt/local/bin/logwatch"
+
+# Auto-detect logwatch location
+if [ -f "/opt/local/bin/logwatch" ]; then
+    LOGWATCH_BIN="/opt/local/bin/logwatch"  # macOS (MacPorts)
+elif [ -f "/usr/sbin/logwatch" ]; then
+    LOGWATCH_BIN="/usr/sbin/logwatch"  # Linux
+else
+    LOGWATCH_BIN=$(which logwatch 2>/dev/null || echo "")
+fi
 
 # Color codes
 GREEN='\033[0;32m'
@@ -25,9 +33,13 @@ echo "Range: $RANGE"
 echo ""
 
 # Check if logwatch exists
-if [ ! -f "$LOGWATCH_BIN" ]; then
-    echo -e "${RED}Error: logwatch not found at $LOGWATCH_BIN${NC}"
-    echo "Install with: sudo port install logwatch"
+if [ -z "$LOGWATCH_BIN" ] || [ ! -f "$LOGWATCH_BIN" ]; then
+    echo -e "${RED}Error: logwatch not found${NC}"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "Install with: sudo port install logwatch"
+    else
+        echo "Install with: sudo apt-get install logwatch"
+    fi
     exit 1
 fi
 
@@ -43,7 +55,13 @@ fi
 # Fix permissions so the analyzer can read it
 echo "Fixing file permissions..."
 sudo chmod 644 "$OUTPUT_FILE"
-sudo chown $(whoami):staff "$OUTPUT_FILE"
+
+# Set ownership based on OS
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    sudo chown $(whoami):staff "$OUTPUT_FILE"
+else
+    sudo chown $(whoami):$(id -gn) "$OUTPUT_FILE"
+fi
 
 # Verify file is readable
 if [ -r "$OUTPUT_FILE" ]; then

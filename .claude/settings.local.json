@@ -10,7 +10,16 @@
       "Bash(cat:*)",
       "Bash(sqlite3:*)",
       "Bash(python3:*)",
-      "Bash(./scripts/generate-logwatch.sh:*)"
+      "Bash(./scripts/generate-logwatch.sh:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm view:*)",
+      "Bash(node --version:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm test)",
+      "Bash(echo:*)",
+      "Read(//tmp/**)",
+      "Bash(awk:*)",
+      "Bash(tee:*)"
     ],
     "deny": [],
     "ask": []

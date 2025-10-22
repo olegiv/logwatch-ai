@@ -140,7 +140,7 @@ crontab -e
 For Linux:
 ```cron
 # Logwatch AI Analyzer - Daily at 6:00 AM
-0 6 * * * cd /opt/logwatch-analyzer && /usr/bin/node src/analyzer.js >> logs/cron.log 2>&1
+0 6 * * * cd /opt/logwatch-analyzer && ./scripts/generate-logwatch.sh yesterday && /usr/bin/node src/analyzer.js >> logs/cron.log 2>&1
 ```
 
 For macOS:
@@ -149,7 +149,11 @@ For macOS:
 0 6 * * * cd /Users/yourusername/Desktop/Projects/AI/logwatch-ai && ./scripts/generate-logwatch.sh yesterday && /usr/local/bin/node src/analyzer.js >> logs/cron.log 2>&1
 ```
 
-**Note:** Replace paths according to your installation directory. Use `which node` to find your Node.js path.
+**Notes:**
+- Replace paths according to your installation directory
+- Use `which node` to find your Node.js path
+- The `generate-logwatch.sh` script handles logwatch execution and permission fixes
+- Requires passwordless sudo for logwatch (see MACOS_SETUP.md for instructions)
 
 ### Manual Execution
 

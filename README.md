@@ -131,9 +131,25 @@ The system runs automatically via cron at 6:00 AM daily:
 # View current cron jobs
 crontab -l
 
-# Edit cron schedule (if needed)
+# Edit cron schedule
 crontab -e
 ```
+
+**Add this line to your crontab:**
+
+For Linux:
+```cron
+# Logwatch AI Analyzer - Daily at 6:00 AM
+0 6 * * * cd /opt/logwatch-analyzer && /usr/bin/node src/analyzer.js >> logs/cron.log 2>&1
+```
+
+For macOS:
+```cron
+# Logwatch AI Analyzer - Daily at 6:00 AM
+0 6 * * * cd /Users/yourusername/Desktop/Projects/AI/logwatch-ai && ./scripts/generate-logwatch.sh yesterday && /usr/local/bin/node src/analyzer.js >> logs/cron.log 2>&1
+```
+
+**Note:** Replace paths according to your installation directory. Use `which node` to find your Node.js path.
 
 ### Manual Execution
 

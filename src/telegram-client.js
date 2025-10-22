@@ -150,9 +150,14 @@ class TelegramClient {
    * @returns {string} Escaped text
    */
   escapeMarkdown(text) {
+    if (!text) return '';
+
     // Escape special characters for Telegram Markdown
-    // Note: dots (.) and exclamation marks (!) don't need escaping
-    return text.replace(/([_*\[\]()~`>#+\-=|{}])/g, '\\$1');
+    // IMPORTANT: Escape backslash first to prevent double-escaping
+    // Note: dots (.) and exclamation marks (!) don't need escaping in basic Markdown mode
+    return text
+      .replace(/\\/g, '\\\\')  // Escape backslash first
+      .replace(/([_*\[\]()~`>#+\-=|{}])/g, '\\$1');  // Then escape other special chars
   }
 
   /**

@@ -19,7 +19,11 @@
       "Bash(echo:*)",
       "Read(//tmp/**)",
       "Bash(awk:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(git add:*)",
+      "Bash(git restore:*)",
+      "Bash(git commit:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []

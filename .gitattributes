@@ -1,0 +1,7 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Ensure package files use LF
+package.json text eol=lf
+package-lock.json text eol=lf
+.npmrc text eol=lf

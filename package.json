@@ -8,11 +8,15 @@
     "start": "node src/analyzer.js",
     "test": "node scripts/test.js"
   },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.0",
-    "better-sqlite3": "^11.7.0",
+    "@anthropic-ai/sdk": "^0.67.0",
+    "better-sqlite3": "^12.4.1",
     "date-fns": "^4.1.0",
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.2.3",
     "grammy": "^1.38.3"
   },
   "keywords": [

@@ -23,7 +23,10 @@
       "Bash(git add:*)",
       "Bash(git restore:*)",
       "Bash(git commit:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(node scripts/get-channel-id.js:*)",
+      "Bash(npm outdated:*)",
+      "Bash(npm --version)"
     ],
     "deny": [],
     "ask": []

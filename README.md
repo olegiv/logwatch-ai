@@ -272,7 +272,7 @@ Edit `.env` to customize behavior:
 ```env
 # Claude API
 ANTHROPIC_API_KEY=sk-ant-xxxxx
-CLAUDE_MODEL=claude-sonnet-4-20250514
+CLAUDE_MODEL=claude-sonnet-4-5-20250929
 
 # Telegram Bot
 TELEGRAM_BOT_TOKEN=xxxxx
@@ -387,11 +387,11 @@ cd /opt/logwatch-ai && node src/analyzer.js
 
 ## Cost Estimation
 
-Claude API costs (approximate, as of 2025):
+Claude API costs (Sonnet 4.5, as of 2025):
 - Input: $3 per million tokens
 - Output: $15 per million tokens
 - Typical daily analysis: ~2,000-5,000 tokens
-- Estimated monthly cost: $0.10 - $0.50
+- Estimated monthly cost: ~$0.59 (cost-effective)
 
 ## Maintenance
 

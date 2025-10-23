@@ -171,7 +171,7 @@ class ClaudeClient {
     const outputTokens = response.usage?.output_tokens || 0;
     const totalTokens = inputTokens + outputTokens;
 
-    // Rough cost estimation for Claude Sonnet (as of 2025)
+    // Cost estimation for Claude Sonnet 4.5 (as of 2025)
     // Input: $3 per million tokens, Output: $15 per million tokens
     const estimatedCost = (inputTokens / 1000000 * 3) + (outputTokens / 1000000 * 15);
 
@@ -194,7 +194,7 @@ class ClaudeClient {
     const outputTokens = response.usage?.output_tokens || 0;
     const totalTokens = inputTokens + outputTokens;
 
-    // Rough cost estimation for Claude Sonnet (as of 2025)
+    // Cost estimation for Claude Sonnet 4.5 (as of 2025)
     // Input: $3 per million tokens, Output: $15 per million tokens
     const estimatedCost = (inputTokens / 1000000 * 3) + (outputTokens / 1000000 * 15);
 

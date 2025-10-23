@@ -20,7 +20,7 @@ Claude AI serves as the intelligent analysis engine that:
 
 ### API Integration
 
-**Model Used**: `claude-sonnet-4-20250514`
+**Model Used**: `claude-sonnet-4-5-20250929` (Sonnet 4.5)
 
 The integration is implemented in `src/claude-client.js` and uses:
 - Anthropic SDK (@anthropic-ai/sdk)
@@ -90,21 +90,22 @@ This enables Claude to:
 
 ```env
 # Claude API Configuration
-ANTHROPIC_API_KEY=sk-ant-xxxxx           # Your Anthropic API key
-CLAUDE_MODEL=claude-sonnet-4-20250514    # Model to use
+ANTHROPIC_API_KEY=sk-ant-xxxxx              # Your Anthropic API key
+CLAUDE_MODEL=claude-sonnet-4-5-20250929     # Model to use
 ```
 
 ### Model Selection
 
-The project uses Claude Sonnet 4, which offers:
+The project uses Claude Sonnet 4.5 (`claude-sonnet-4-5-20250929`), which offers:
 - Fast response times (important for daily automation)
-- Strong analytical capabilities
-- Cost-effective pricing
-- Excellent instruction-following
+- Strong analytical and reasoning capabilities
+- Balanced pricing ($3/MTok input, $15/MTok output)
+- Excellent instruction-following for JSON output
+- Superior quality for complex log analysis
 
 Alternative models:
-- `claude-opus-4-20250514` - More powerful, higher cost
-- `claude-haiku-4-20250514` - Faster, lower cost, less capable
+- `claude-haiku-4-5-20251001` - Faster, 3x cheaper, less capable for complex analysis
+- `claude-opus-4-20250514` - Most powerful, significantly higher cost
 
 ## Working with This Codebase Using Claude Code
 
@@ -187,20 +188,21 @@ Check `logs/app.log` for JSON parsing errors. Claude might return malformed JSON
 
 ## Cost Management
 
-### Current Usage
+### Current Usage (Sonnet 4.5)
 
 - **Daily analysis**: ~2,000-5,000 tokens
-- **Monthly cost**: $0.10-$0.50
+- **Monthly cost**: ~$0.59 (cost-effective)
 - **Token breakdown**:
-  - Input: ~1,500 tokens (prompt + log content)
-  - Output: ~500-1,000 tokens (analysis)
+  - Input: ~1,500 tokens × $3/MTok = $0.0045
+  - Output: ~1,000 tokens × $15/MTok = $0.015
+  - Total per analysis: ~$0.0195
 
 ### Optimization Tips
 
 1. **Preprocess logs**: Remove unnecessary verbosity before sending to Claude
-2. **Use caching**: Implement prompt caching for repeated system prompts
+2. **Use caching**: Implement prompt caching for repeated system prompts (can reduce costs by 90%)
 3. **Batch processing**: Analyze multiple days at once if appropriate
-4. **Model selection**: Use Haiku for simple analyses, Sonnet for complex
+4. **Model selection**: Sonnet 4.5 provides best balance; use Haiku 4.5 for 3x cost savings if quality is sufficient
 
 ## Extending the AI Capabilities
 

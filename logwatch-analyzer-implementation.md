@@ -95,7 +95,7 @@ Build a daily automated system that analyzes logwatch reports using Claude API a
 ```bash
 # Claude API
 ANTHROPIC_API_KEY=sk-ant-xxxxx
-CLAUDE_MODEL=claude-sonnet-4-20250514
+CLAUDE_MODEL=claude-sonnet-4-5-20250929
 
 # Telegram Bot
 TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz

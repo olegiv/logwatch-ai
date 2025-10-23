@@ -1,5 +1,5 @@
 {
-  "name": "logwatch-analyzer",
+  "name": "logwatch-ai",
   "version": "1.0.0",
   "type": "module",
   "description": "AI-powered logwatch analysis with Telegram notifications",
@@ -22,6 +22,6 @@
     "telegram",
     "monitoring"
   ],
-  "author": "",
+  "author": "Oleg Ivanchenko",
   "license": "MIT"
 }

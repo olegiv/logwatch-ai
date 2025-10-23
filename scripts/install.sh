@@ -18,7 +18,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Default installation directory
-INSTALL_DIR="/opt/logwatch-analyzer"
+INSTALL_DIR="/opt/logwatch-ai"
 CURRENT_DIR="$(pwd)"
 
 # Check if running as root
@@ -135,7 +135,7 @@ else
         echo -e "${YELLOW}IMPORTANT: Edit $INSTALL_DIR/.env and add your API keys:${NC}"
         echo "  - ANTHROPIC_API_KEY"
         echo "  - TELEGRAM_BOT_TOKEN"
-        echo "  - TELEGRAM_CHAT_ID"
+        echo "  - TELEGRAM_CHANNEL_ID"
     else
         print_warning ".env.template not found. You'll need to create .env manually."
     fi
@@ -151,7 +151,7 @@ echo "Permissions set ✓"
 # Setup cron job
 print_step "Setting up cron job..."
 CRON_CMD="0 6 * * * cd $INSTALL_DIR && $(which node) src/analyzer.js >> logs/cron.log 2>&1"
-CRON_EXISTS=$(crontab -l 2>/dev/null | grep -F "logwatch-analyzer" || true)
+CRON_EXISTS=$(crontab -l 2>/dev/null | grep -F "logwatch-ai" || true)
 
 if [ ! -z "$CRON_EXISTS" ]; then
     print_warning "Cron job already exists:"
@@ -159,7 +159,7 @@ if [ ! -z "$CRON_EXISTS" ]; then
     read -p "Replace it? (y/n) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        (crontab -l 2>/dev/null | grep -v "logwatch-analyzer"; echo "$CRON_CMD") | crontab -
+        (crontab -l 2>/dev/null | grep -v "logwatch-ai"; echo "$CRON_CMD") | crontab -
         echo "Cron job updated ✓"
     fi
 else
@@ -169,14 +169,14 @@ fi
 
 echo ""
 echo "Current crontab:"
-crontab -l | grep -A1 "logwatch-analyzer" || echo "No logwatch-analyzer cron job found"
+crontab -l | grep -A1 "logwatch-ai" || echo "No logwatch-ai cron job found"
 
 # Create systemd service (optional)
 print_step "Creating systemd service (optional)..."
 read -p "Create systemd service for manual execution? (y/n) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    SERVICE_FILE="/etc/systemd/system/logwatch-analyzer.service"
+    SERVICE_FILE="/etc/systemd/system/logwatch-ai.service"
 
     cat << EOF | $USE_SUDO tee "$SERVICE_FILE" > /dev/null
 [Unit]
@@ -197,7 +197,7 @@ EOF
 
     $USE_SUDO systemctl daemon-reload
     echo "Systemd service created ✓"
-    echo "You can run manually with: sudo systemctl start logwatch-analyzer"
+    echo "You can run manually with: sudo systemctl start logwatch-ai"
 fi
 
 # Test configuration

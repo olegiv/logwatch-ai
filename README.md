@@ -27,14 +27,14 @@ An automated system that analyzes logwatch reports using Claude AI and sends sum
 
 ```bash
 cd /opt
-git clone <your-repo-url> logwatch-analyzer
+git clone https://github.com/olegiv/logwatch-ai.git logwatch-ai
 # OR download and extract the project files
 ```
 
 ### 2. Run Installation Script
 
 ```bash
-cd logwatch-analyzer
+cd logwatch-ai
 chmod +x scripts/install.sh
 ./scripts/install.sh
 ```
@@ -59,17 +59,80 @@ Required settings:
 ```env
 ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
 TELEGRAM_BOT_TOKEN=your-bot-token-here
-TELEGRAM_CHAT_ID=your-chat-id-here
+TELEGRAM_CHANNEL_ID=your-channel-id-here
 ```
 
-### 4. Get Telegram Bot Token
+### 4. Setup Telegram Notifications
 
+You can send logwatch reports to either a private chat or a Telegram channel. **Channels are recommended** for better organization and access control.
+
+#### Option A: Telegram Channel (Recommended)
+
+A Telegram channel allows you to:
+- Control who can view reports (private channel)
+- Keep a permanent history of all reports
+- Share access with team members
+- Separate notifications from personal messages
+
+**Step 1: Create a Telegram Bot**
 1. Open Telegram and search for [@BotFather](https://t.me/botfather)
 2. Send `/newbot` and follow instructions
-3. Copy the bot token to your `.env` file
-4. Send a message to your bot
-5. Get your chat ID by visiting: `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
-6. Copy the chat ID to your `.env` file
+3. Choose a name (e.g., "Logwatch Reporter")
+4. Choose a username (e.g., "my_logwatch_bot")
+5. Copy the bot token - you'll need this for `.env`
+
+**Step 2: Create a Private Channel**
+1. In Telegram, click menu (☰) → **New Channel**
+2. Enter channel name (e.g., "Logwatch Reports")
+3. Add description (optional): "Automated system log analysis reports"
+4. Choose **Private Channel** (only invited users can access)
+5. Click **Create**
+6. Skip adding subscribers for now (you can add later)
+
+**Step 3: Add Bot as Administrator**
+1. Open your channel
+2. Click on the channel name at the top
+3. Click **Administrators** → **Add Administrator**
+4. Search for your bot by username (e.g., `@my_logwatch_bot`)
+5. Give the bot permission to **Post Messages** (uncheck other permissions)
+6. Click **Done**
+
+**Step 4: Get Channel ID**
+1. Post any message to your channel (this is required)
+2. Run the helper script:
+   ```bash
+   node scripts/get-channel-id.js
+   ```
+3. Copy the channel ID (looks like `-1001234567890`)
+4. Update your `.env` file with:
+   ```env
+   TELEGRAM_CHANNEL_ID=-1001234567890
+   ```
+
+**Step 5: Invite Team Members (Optional)**
+1. Open your channel → Channel Info
+2. Click **Subscribers**
+3. Click **Add Subscribers**
+4. Search and add team members who should see reports
+5. Members will receive reports but cannot post (read-only access)
+
+#### Option B: Direct Chat with Bot
+
+For personal use, you can send reports to a private chat:
+
+1. Create bot with [@BotFather](https://t.me/botfather) (same as Step 1 above)
+2. Copy the bot token to your `.env` file
+3. Open your bot in Telegram and send `/start`
+4. Get your chat ID:
+   - Visit: `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
+   - Look for `"chat":{"id":123456789`
+   - Copy the numeric ID
+5. Update `.env` with:
+   ```env
+   TELEGRAM_CHANNEL_ID=123456789
+   ```
+
+**Note:** Using a channel is preferred as it provides better organization and team collaboration.
 
 ### 5. Test Configuration
 
@@ -95,7 +158,7 @@ This will run a complete analysis cycle and send a report to Telegram.
 ## Project Structure
 
 ```
-logwatch-analyzer/
+logwatch-ai/
 ├── package.json              # Node.js dependencies
 ├── .env                      # Environment configuration (create from .env.template)
 ├── .env.template             # Environment template
@@ -118,7 +181,8 @@ logwatch-analyzer/
 │   └── summaries.db          # SQLite database
 └── scripts/
     ├── install.sh            # Installation script
-    └── test.js               # Configuration test script
+    ├── test.js               # Configuration test script
+    └── get-channel-id.js     # Helper to get Telegram channel ID
 ```
 
 ## Usage
@@ -140,7 +204,7 @@ crontab -e
 For Linux:
 ```cron
 # Logwatch AI Analyzer - Daily at 6:00 AM
-0 6 * * * cd /opt/logwatch-analyzer && ./scripts/generate-logwatch.sh yesterday && /usr/local/bin/node src/analyzer.js >> logs/cron.log 2>&1
+0 6 * * * cd /opt/logwatch-ai && ./scripts/generate-logwatch.sh yesterday && /usr/local/bin/node src/analyzer.js >> logs/cron.log 2>&1
 ```
 
 For macOS:
@@ -165,7 +229,7 @@ npm start
 node src/analyzer.js
 
 # Using systemd (if configured)
-sudo systemctl start logwatch-analyzer
+sudo systemctl start logwatch-ai
 ```
 
 ### View Logs
@@ -204,10 +268,10 @@ CLAUDE_MODEL=claude-sonnet-4-20250514
 
 # Telegram Bot
 TELEGRAM_BOT_TOKEN=xxxxx
-TELEGRAM_CHAT_ID=xxxxx
+TELEGRAM_CHANNEL_ID=xxxxx
 
 # Logwatch
-LOGWATCH_OUTPUT_PATH=/var/cache/logwatch/logwatch.txt
+LOGWATCH_OUTPUT_PATH=/tmp/logwatch-output.txt
 MAX_LOG_SIZE_MB=10
 
 # Application
@@ -245,7 +309,7 @@ Then update `LOGWATCH_OUTPUT_PATH` in `.env`
 chmod 600 .env
 
 # Fix directory ownership
-sudo chown -R $USER:$USER /opt/logwatch-analyzer
+sudo chown -R $USER:$USER /opt/logwatch-ai
 
 # Fix log directory permissions
 chmod 755 logs data
@@ -259,10 +323,25 @@ chmod 755 logs data
 
 ### Telegram not receiving messages
 
+**For channels:**
+- Verify bot is added as **administrator** to the channel
+- Bot must have **Post Messages** permission
+- Post a test message to the channel after adding the bot
+- Run `node scripts/get-channel-id.js` to verify the channel ID
+- Channel ID should start with `-100` (e.g., `-1001234567890`)
+- Check `logs/app.log` for detailed error messages
+
+**For direct chats:**
 - Verify bot token and chat ID are correct
-- Test with: `node scripts/test.js`
+- Send `/start` to your bot first
 - Ensure bot is not blocked
+- Chat ID should be a positive number (e.g., `123456789`)
+
+**General troubleshooting:**
+- Test with: `node scripts/test.js`
+- Verify credentials in `.env` are correct
 - Check `logs/app.log` for delivery errors
+- Try sending a test message: `node src/analyzer.js`
 
 ### Cron job not running
 
@@ -274,7 +353,7 @@ sudo systemctl status cron
 grep CRON /var/log/syslog
 
 # Test cron job manually
-cd /opt/logwatch-analyzer && node src/analyzer.js
+cd /opt/logwatch-ai && node src/analyzer.js
 ```
 
 ## Security Considerations
@@ -306,7 +385,7 @@ Database automatically removes entries older than 90 days during each run.
 ### Updates
 
 ```bash
-cd /opt/logwatch-analyzer
+cd /opt/logwatch-ai
 git pull  # if using git
 npm install  # update dependencies
 ```
@@ -316,16 +395,16 @@ npm install  # update dependencies
 ```bash
 # Remove cron job
 crontab -e
-# Delete the logwatch-analyzer line
+# Delete the logwatch-ai line
 
 # Remove systemd service (if created)
-sudo systemctl stop logwatch-analyzer
-sudo systemctl disable logwatch-analyzer
-sudo rm /etc/systemd/system/logwatch-analyzer.service
+sudo systemctl stop logwatch-ai
+sudo systemctl disable logwatch-ai
+sudo rm /etc/systemd/system/logwatch-ai.service
 sudo systemctl daemon-reload
 
 # Remove installation directory
-sudo rm -rf /opt/logwatch-analyzer
+sudo rm -rf /opt/logwatch-ai
 ```
 
 ## License

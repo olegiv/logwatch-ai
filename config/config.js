@@ -24,7 +24,7 @@ class Config {
 
     this.telegram = {
       botToken: this.getRequired('TELEGRAM_BOT_TOKEN'),
-      chatId: this.getRequired('TELEGRAM_CHAT_ID'),
+      chatId: this.getRequired('TELEGRAM_CHANNEL_ID'),
       maxMessageLength: 4096,
       retryDelay: 5000 // 5 seconds
     };
@@ -74,9 +74,9 @@ class Config {
       throw new Error('Invalid TELEGRAM_BOT_TOKEN format');
     }
 
-    // Validate chat ID is numeric
+    // Validate channel ID is numeric (channels start with -100)
     if (!this.telegram.chatId.match(/^-?\d+$/)) {
-      throw new Error('Invalid TELEGRAM_CHAT_ID format (must be numeric)');
+      throw new Error('Invalid TELEGRAM_CHANNEL_ID format (must be numeric, channels start with -100)');
     }
 
     // Validate max log size

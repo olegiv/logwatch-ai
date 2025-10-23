@@ -83,8 +83,8 @@ async function testConfiguration() {
       const hasTelegramToken = config.telegram.botToken && !config.telegram.botToken.includes('xxxxx');
       printResult('Telegram bot token configured', hasTelegramToken, 'Set TELEGRAM_BOT_TOKEN in .env');
 
-      const hasChatId = config.telegram.chatId && config.telegram.chatId !== '123456789';
-      printResult('Telegram chat ID configured', hasChatId, 'Set TELEGRAM_CHAT_ID in .env');
+      const hasChatId = config.telegram.chatId && config.telegram.chatId !== '123456789' && config.telegram.chatId !== '-1001234567890';
+      printResult('Telegram channel ID configured', hasChatId, 'Set TELEGRAM_CHANNEL_ID in .env');
     }
 
     // Test logwatch path

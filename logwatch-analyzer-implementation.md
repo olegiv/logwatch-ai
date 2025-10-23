@@ -42,7 +42,7 @@ Build a daily automated system that analyzes logwatch reports using Claude API a
 ## Project Structure
 
 ```
-/opt/logwatch-analyzer/
+/opt/logwatch-ai/
 ├── package.json
 ├── .env
 ├── config/
@@ -71,7 +71,7 @@ Build a daily automated system that analyzes logwatch reports using Claude API a
 
 ```json
 {
-  "name": "logwatch-analyzer",
+  "name": "logwatch-ai",
   "version": "1.0.0",
   "type": "module",
   "description": "AI-powered logwatch analysis with Telegram notifications",
@@ -99,7 +99,7 @@ CLAUDE_MODEL=claude-sonnet-4-20250514
 
 # Telegram Bot
 TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
-TELEGRAM_CHAT_ID=123456789
+TELEGRAM_CHANNEL_ID=-1001234567890
 
 # Logwatch Configuration
 LOGWATCH_OUTPUT_PATH=/var/cache/logwatch/logwatch.txt
@@ -110,7 +110,7 @@ NODE_ENV=production
 LOG_LEVEL=info
 MAX_LOG_SIZE_MB=10
 ENABLE_DATABASE=true
-DATABASE_PATH=/opt/logwatch-analyzer/data/summaries.db
+DATABASE_PATH=/opt/logwatch-ai/data/summaries.db
 ```
 
 ### 3. Configuration (config/config.js)
@@ -266,7 +266,7 @@ Be concise but thorough. Focus on actionable insights.`;
 **Functionality:**
 - Implement simple file-based logger
 - Support levels: debug, info, warn, error
-- Write to `/opt/logwatch-analyzer/logs/app.log`
+- Write to `/opt/logwatch-ai/logs/app.log`
 - Include timestamps and log levels
 - Implement log rotation (max 10MB per file, keep 5 files)
 - Console output in development mode
@@ -317,7 +317,7 @@ async function main() {
 **Cron Job Entry:**
 ```cron
 # Run logwatch analyzer daily at 6:00 AM
-0 6 * * * cd /opt/logwatch-analyzer && /usr/local/bin/node src/analyzer.js >> logs/cron.log 2>&1
+0 6 * * * cd /opt/logwatch-ai && /usr/local/bin/node src/analyzer.js >> logs/cron.log 2>&1
 ```
 
 ## Test Script (scripts/test.sh)

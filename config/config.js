@@ -24,7 +24,8 @@ class Config {
 
     this.telegram = {
       botToken: this.getRequired('TELEGRAM_BOT_TOKEN'),
-      chatId: this.getRequired('TELEGRAM_CHANNEL_ID'),
+      archiveChannelId: this.getRequired('TELEGRAM_CHANNEL_ARCHIVE_ID'),
+      alertsChannelId: process.env.TELEGRAM_CHANNEL_ALERTS_ID || null,
       maxMessageLength: 4096,
       retryDelay: 5000 // 5 seconds
     };
@@ -74,9 +75,14 @@ class Config {
       throw new Error('Invalid TELEGRAM_BOT_TOKEN format');
     }
 
-    // Validate channel ID is numeric (channels start with -100)
-    if (!this.telegram.chatId.match(/^-?\d+$/)) {
-      throw new Error('Invalid TELEGRAM_CHANNEL_ID format (must be numeric, channels start with -100)');
+    // Validate archive channel ID is numeric (channels start with -100)
+    if (!this.telegram.archiveChannelId.match(/^-?\d+$/)) {
+      throw new Error('Invalid TELEGRAM_CHANNEL_ARCHIVE_ID format (must be numeric, channels start with -100)');
+    }
+
+    // Validate alerts channel ID if provided
+    if (this.telegram.alertsChannelId && !this.telegram.alertsChannelId.match(/^-?\d+$/)) {
+      throw new Error('Invalid TELEGRAM_CHANNEL_ALERTS_ID format (must be numeric, channels start with -100)');
     }
 
     // Validate max log size

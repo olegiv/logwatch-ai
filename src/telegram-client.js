@@ -7,30 +7,45 @@ import os from 'os';
 const logger = getLogger();
 
 /**
- * Telegram bot client for sending analysis reports
+ * Telegram bot client for sending analysis reports to multiple channels
  */
 class TelegramClient {
   constructor() {
     this.bot = new Bot(config.telegram.botToken);
-    this.chatId = config.telegram.chatId;
+    this.archiveChannelId = config.telegram.archiveChannelId;
+    this.alertsChannelId = config.telegram.alertsChannelId;
     this.maxMessageLength = config.telegram.maxMessageLength;
     this.retryDelay = config.telegram.retryDelay;
   }
 
   /**
-   * Send analysis report to Telegram
+   * Send analysis report to Telegram channels
    * @param {Object} analysis - Analysis object from Claude
    * @param {Object} stats - Execution statistics (optional)
    * @returns {Promise<void>}
    */
   async sendAnalysisReport(analysis, stats = null) {
-    logger.info('Preparing Telegram message');
+    logger.info('Preparing Telegram messages');
 
+    // Format the full report message
     const message = this.formatAnalysisMessage(analysis, stats);
 
-    await this.sendMessage(message);
+    // Always send full report to archive channel
+    await this.sendMessage(message, this.archiveChannelId, 'Archive');
 
-    logger.info('Telegram message sent successfully');
+    // Send to alerts channel if status is worse than "Good"
+    if (this.alertsChannelId) {
+      const statusWorseThanGood = ['Satisfactory', 'Bad', 'Awful'].includes(analysis.systemStatus);
+
+      if (statusWorseThanGood) {
+        logger.info(`System status is ${analysis.systemStatus}, sending to alerts channel`);
+        await this.sendMessage(message, this.alertsChannelId, 'Alerts');
+      } else {
+        logger.info(`System status is ${analysis.systemStatus || 'Good'}, skipping alerts channel`);
+      }
+    }
+
+    logger.info('Telegram messages sent successfully');
   }
 
   /**
@@ -163,25 +178,30 @@ class TelegramClient {
   /**
    * Send message to Telegram (with splitting if needed)
    * @param {string} message - Message to send
+   * @param {string} channelId - Channel ID to send to
+   * @param {string} channelName - Channel name for logging
    * @returns {Promise<void>}
    */
-  async sendMessage(message) {
+  async sendMessage(message, channelId, channelName = 'Channel') {
+    logger.info(`Sending to ${channelName} channel (${channelId})`);
+
     // Check if message needs to be split
     if (message.length <= this.maxMessageLength) {
-      await this.sendSingleMessage(message);
+      await this.sendSingleMessage(message, channelId);
     } else {
-      await this.sendSplitMessage(message);
+      await this.sendSplitMessage(message, channelId);
     }
   }
 
   /**
    * Send a single message to Telegram
    * @param {string} message - Message to send
+   * @param {string} channelId - Channel ID to send to
    * @returns {Promise<void>}
    */
-  async sendSingleMessage(message) {
+  async sendSingleMessage(message, channelId) {
     try {
-      await this.bot.api.sendMessage(this.chatId, message, {
+      await this.bot.api.sendMessage(channelId, message, {
         parse_mode: 'Markdown'
       });
     } catch (error) {
@@ -192,7 +212,7 @@ class TelegramClient {
       await this.sleep(this.retryDelay);
 
       try {
-        await this.bot.api.sendMessage(this.chatId, message, {
+        await this.bot.api.sendMessage(channelId, message, {
           parse_mode: 'Markdown'
         });
       } catch (retryError) {
@@ -205,9 +225,10 @@ class TelegramClient {
   /**
    * Split and send long message
    * @param {string} message - Message to split and send
+   * @param {string} channelId - Channel ID to send to
    * @returns {Promise<void>}
    */
-  async sendSplitMessage(message) {
+  async sendSplitMessage(message, channelId) {
     logger.info(`Message too long (${message.length} chars), splitting...`);
 
     const parts = this.splitMessage(message);
@@ -218,7 +239,7 @@ class TelegramClient {
       const part = parts[i];
       const partMessage = `[Part ${i + 1}/${parts.length}]\n\n${part}`;
 
-      await this.sendSingleMessage(partMessage);
+      await this.sendSingleMessage(partMessage, channelId);
 
       // Small delay between messages to avoid rate limiting
       if (i < parts.length - 1) {
@@ -256,7 +277,7 @@ class TelegramClient {
   }
 
   /**
-   * Send error notification
+   * Send error notification (to archive channel)
    * @param {string} errorMessage - Error message
    * @returns {Promise<void>}
    */
@@ -264,7 +285,7 @@ class TelegramClient {
     const message = `❌ *Logwatch Analyzer Error*\n\n${this.escapeMarkdown(errorMessage)}`;
 
     try {
-      await this.sendMessage(message);
+      await this.sendMessage(message, this.archiveChannelId, 'Archive');
       logger.info('Error notification sent to Telegram');
     } catch (error) {
       logger.error('Failed to send error notification to Telegram', error);

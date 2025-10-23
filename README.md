@@ -42,7 +42,7 @@ chmod +x scripts/install.sh
 The installation script will:
 - Check prerequisites (Node.js, npm, logwatch)
 - Install Node.js dependencies
-- Create necessary directories
+- Create the necessary directories
 - Set up environment configuration
 - Configure cron job for daily execution
 - Optionally create systemd service
@@ -59,80 +59,88 @@ Required settings:
 ```env
 ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
 TELEGRAM_BOT_TOKEN=your-bot-token-here
-TELEGRAM_CHANNEL_ID=your-channel-id-here
+TELEGRAM_CHANNEL_ARCHIVE_ID=your-archive-channel-id-here
+TELEGRAM_CHANNEL_ALERTS_ID=your-alerts-channel-id-here  # Optional
 ```
 
 ### 4. Setup Telegram Notifications
 
-You can send logwatch reports to either a private chat or a Telegram channel. **Channels are recommended** for better organization and access control.
+Logwatch AI uses **two Telegram channels** for smart reporting:
 
-#### Option A: Telegram Channel (Recommended)
+1. **Archive Channel** (required) - "Logwatch AI Archive"
+   - Receives all reports (full details)
+   - Historical record of every analysis
+   - Complete summary, metrics, and recommendations
 
-A Telegram channel allows you to:
-- Control who can view reports (private channel)
-- Keep a permanent history of all reports
-- Share access with team members
-- Separate notifications from personal messages
+2. **Alerts Channel** (optional) - "Logwatch AI Alerts"
+   - Receives full reports when system status is worse than "Good"
+   - Same complete report as Archive channel
+   - Silent when status is "Excellent" or "Good"
 
-**Step 1: Create a Telegram Bot**
+**Benefits:**
+- Keep full history in Archive, get alerts only when needed
+- Team members can subscribe to Alerts channel only
+- Reduce notification fatigue (only alerted when status degrades)
+- Better incident response workflow
+
+#### Step 1: Create a Telegram Bot
+
 1. Open Telegram and search for [@BotFather](https://t.me/botfather)
 2. Send `/newbot` and follow instructions
 3. Choose a name (e.g., "Logwatch Reporter")
 4. Choose a username (e.g., "my_logwatch_bot")
 5. Copy the bot token - you'll need this for `.env`
 
-**Step 2: Create a Private Channel**
+#### Step 2: Create Archive Channel (Required)
+
 1. In Telegram, click menu (☰) → **New Channel**
-2. Enter channel name (e.g., "Logwatch Reports")
-3. Add description (optional): "Automated system log analysis reports"
-4. Choose **Private Channel** (only invited users can access)
+2. Enter channel name: **"Logwatch AI Archive"**
+3. Add description: "Full daily logwatch analysis reports"
+4. Choose **Private Channel**
 5. Click **Create**
-6. Skip adding subscribers for now (you can add later)
+6. Skip adding subscribers for now
 
-**Step 3: Add Bot as Administrator**
-1. Open your channel
-2. Click on the channel name at the top
-3. Click **Administrators** → **Add Administrator**
-4. Search for your bot by username (e.g., `@my_logwatch_bot`)
-5. Give the bot permission to **Post Messages** (uncheck other permissions)
-6. Click **Done**
+#### Step 3: Create Alerts Channel (Optional but Recommended)
 
-**Step 4: Get Channel ID**
-1. Post any message to your channel (this is required)
-2. Run the helper script:
+1. Create another channel: **"Logwatch AI Alerts"**
+2. Add description: "Critical issues and warnings only"
+3. Choose **Private Channel**
+4. Click **Create**
+
+#### Step 4: Add Bot as Administrator to Both Channels
+
+For **each channel**:
+1. Open the channel
+2. Click on the channel name → **Administrators** → **Add Administrator**
+3. Search for your bot (e.g., `@my_logwatch_bot`)
+4. Give it **"Post Messages"** permission only
+5. Click **Done**
+
+#### Step 5: Get Channel IDs
+
+1. Post a test message to **Archive channel**
+2. Post a test message to **Alerts channel** (if created)
+3. Run the helper script:
    ```bash
    node scripts/get-channel-id.js
    ```
-3. Copy the channel ID (looks like `-1001234567890`)
-4. Update your `.env` file with:
+4. The script will show both channel IDs
+5. Update your `.env` file:
    ```env
-   TELEGRAM_CHANNEL_ID=-1001234567890
+   # Archive channel (required)
+   TELEGRAM_CHANNEL_ARCHIVE_ID=-1001234567890
+
+   # Alerts channel (optional - leave empty to disable)
+   TELEGRAM_CHANNEL_ALERTS_ID=-1009876543210
    ```
 
-**Step 5: Invite Team Members (Optional)**
-1. Open your channel → Channel Info
-2. Click **Subscribers**
-3. Click **Add Subscribers**
-4. Search and add team members who should see reports
-5. Members will receive reports but cannot post (read-only access)
+#### Step 6: Invite Team Members
 
-#### Option B: Direct Chat with Bot
+**Archive Channel:** Invite technical team members who need full details
 
-For personal use, you can send reports to a private chat:
+**Alerts Channel:** Invite on-call team, managers, or anyone who needs immediate notifications
 
-1. Create bot with [@BotFather](https://t.me/botfather) (same as Step 1 above)
-2. Copy the bot token to your `.env` file
-3. Open your bot in Telegram and send `/start`
-4. Get your chat ID:
-   - Visit: `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
-   - Look for `"chat":{"id":123456789`
-   - Copy the numeric ID
-5. Update `.env` with:
-   ```env
-   TELEGRAM_CHANNEL_ID=123456789
-   ```
-
-**Note:** Using a channel is preferred as it provides better organization and team collaboration.
+Members will have read-only access to both channels.
 
 ### 5. Test Configuration
 
@@ -268,7 +276,8 @@ CLAUDE_MODEL=claude-sonnet-4-20250514
 
 # Telegram Bot
 TELEGRAM_BOT_TOKEN=xxxxx
-TELEGRAM_CHANNEL_ID=xxxxx
+TELEGRAM_CHANNEL_ARCHIVE_ID=xxxxx  # Required - full reports
+TELEGRAM_CHANNEL_ALERTS_ID=xxxxx   # Optional - alerts only
 
 # Logwatch
 LOGWATCH_OUTPUT_PATH=/tmp/logwatch-output.txt
@@ -283,13 +292,24 @@ DATABASE_PATH=./data/summaries.db
 
 ## Telegram Message Format
 
-The Telegram bot sends formatted messages with:
+### Archive Channel (Full Reports)
 
+Complete daily reports with:
+- 🔍 Report header (host, date, timezone, status)
 - 📊 Summary: Brief overview of system health
 - ⚠️ Critical Issues: Urgent problems requiring attention
 - ⚡ Warnings: Non-critical but concerning issues
 - 💡 Recommendations: Actionable steps
 - 📈 Key Metrics: Important numbers (failed logins, errors, disk usage)
+
+### Alerts Channel (When Status ≤ Good)
+
+Full reports are sent when system status is worse than "Good":
+- Same complete report as an Archive channel
+- Triggered when status is: **Satisfactory**, **Bad**, or **Awful**
+- Includes all sections: Summary, Issues, Warnings, Recommendations, Metrics
+
+**Note:** If status is "Excellent" or "Good", the alerts channel receives nothing.
 
 ## Troubleshooting
 
@@ -323,25 +343,26 @@ chmod 755 logs data
 
 ### Telegram not receiving messages
 
-**For channels:**
-- Verify bot is added as **administrator** to the channel
+**For Archive Channel (Required):**
+- Verify bot is added as **administrator** to the Archive channel
 - Bot must have **Post Messages** permission
 - Post a test message to the channel after adding the bot
 - Run `node scripts/get-channel-id.js` to verify the channel ID
 - Channel ID should start with `-100` (e.g., `-1001234567890`)
-- Check `logs/app.log` for detailed error messages
+- Update `TELEGRAM_CHANNEL_ARCHIVE_ID` in `.env`
 
-**For direct chats:**
-- Verify bot token and chat ID are correct
-- Send `/start` to your bot first
-- Ensure bot is not blocked
-- Chat ID should be a positive number (e.g., `123456789`)
+**For Alerts Channel (Optional):**
+- Same setup as Archive channel
+- Update `TELEGRAM_CHANNEL_ALERTS_ID` in `.env`
+- Leave empty to disable the alerts channel
+- Reports sent when system status is worse than "Good" (Satisfactory/Bad/Awful)
 
 **General troubleshooting:**
-- Test with: `node scripts/test.js`
+- Test with: `node scripts/test.js` (tests both channels)
 - Verify credentials in `.env` are correct
-- Check `logs/app.log` for delivery errors
-- Try sending a test message: `node src/analyzer.js`
+- Check `logs/app.log` for detailed error messages
+- Try manual run: `npm start`
+- Check bot permissions in channel settings
 
 ### Cron job not running
 

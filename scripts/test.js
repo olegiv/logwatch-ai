@@ -83,8 +83,18 @@ async function testConfiguration() {
       const hasTelegramToken = config.telegram.botToken && !config.telegram.botToken.includes('xxxxx');
       printResult('Telegram bot token configured', hasTelegramToken, 'Set TELEGRAM_BOT_TOKEN in .env');
 
-      const hasChatId = config.telegram.chatId && config.telegram.chatId !== '123456789' && config.telegram.chatId !== '-1001234567890';
-      printResult('Telegram channel ID configured', hasChatId, 'Set TELEGRAM_CHANNEL_ID in .env');
+      const hasArchiveId = config.telegram.archiveChannelId &&
+                           config.telegram.archiveChannelId !== '123456789' &&
+                           config.telegram.archiveChannelId !== '-1001234567890';
+      printResult('Telegram archive channel configured', hasArchiveId, 'Set TELEGRAM_CHANNEL_ARCHIVE_ID in .env');
+
+      const hasAlertsId = config.telegram.alertsChannelId &&
+                         config.telegram.alertsChannelId !== '-1009876543210';
+      if (config.telegram.alertsChannelId) {
+        printResult('Telegram alerts channel configured', hasAlertsId, 'Optional: Update TELEGRAM_CHANNEL_ALERTS_ID');
+      } else {
+        printWarning('Telegram alerts channel not configured', 'Optional: Set TELEGRAM_CHANNEL_ALERTS_ID for alerts');
+      }
     }
 
     // Test logwatch path
@@ -213,15 +223,29 @@ async function testTelegramBot() {
     console.log(`  Bot username: @${botInfo.username}`);
     console.log(`  Bot name: ${botInfo.first_name}`);
 
-    // Test sending message
-    console.log('Sending test message...');
+    // Test sending message to archive channel
+    console.log('Sending test message to archive channel...');
     await bot.api.sendMessage(
-      config.telegram.chatId,
-      '🧪 *Test Message*\n\nLogwatch AI Analyzer configuration test.',
+      config.telegram.archiveChannelId,
+      '🧪 *Test Message - Archive*\n\nLogwatch AI Analyzer configuration test.\nThis is the archive channel for full reports.',
       { parse_mode: 'Markdown' }
     );
-    printResult('Telegram message sent', true);
-    console.log(`  Message sent to chat ID: ${config.telegram.chatId}`);
+    printResult('Archive channel message sent', true);
+    console.log(`  Message sent to archive channel: ${config.telegram.archiveChannelId}`);
+
+    // Test sending message to alerts channel (if configured)
+    if (config.telegram.alertsChannelId) {
+      console.log('Sending test message to alerts channel...');
+      await bot.api.sendMessage(
+        config.telegram.alertsChannelId,
+        '🚨 *Test Alert*\n\nLogwatch AI Analyzer configuration test.\nThis is the alerts channel for critical issues only.',
+        { parse_mode: 'Markdown' }
+      );
+      printResult('Alerts channel message sent', true);
+      console.log(`  Message sent to alerts channel: ${config.telegram.alertsChannelId}`);
+    } else {
+      printWarning('Alerts channel test skipped', 'TELEGRAM_CHANNEL_ALERTS_ID not configured (optional)');
+    }
 
   } catch (error) {
     printResult('Telegram bot connection', false, error.message);

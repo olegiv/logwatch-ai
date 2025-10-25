@@ -1,8 +1,8 @@
 {
   "name": "logwatch-ai",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
-  "description": "AI-powered logwatch analysis with Telegram notifications",
+  "description": "AI-powered logwatch analysis with Telegram notifications and prompt caching",
   "main": "src/analyzer.js",
   "scripts": {
     "start": "node src/analyzer.js",

@@ -30,7 +30,7 @@ class ClaudeClient {
       throw new Error('Log content is empty');
     }
 
-    const prompt = getAnalysisPrompt(logContent, historicalContext);
+    const { systemPrompt, userPrompt } = getAnalysisPrompt(logContent, historicalContext);
 
     logger.info(`Starting Claude analysis (content length: ${logContent.length} chars)`);
 
@@ -43,10 +43,17 @@ class ClaudeClient {
         const response = await this.client.messages.create({
           model: this.model,
           max_tokens: this.maxTokens,
+          system: [
+            {
+              type: 'text',
+              text: systemPrompt,
+              cache_control: { type: 'ephemeral' }
+            }
+          ],
           messages: [
             {
               role: 'user',
-              content: prompt
+              content: userPrompt
             }
           ]
         });
@@ -169,15 +176,26 @@ class ClaudeClient {
   calculateStats(response, duration) {
     const inputTokens = response.usage?.input_tokens || 0;
     const outputTokens = response.usage?.output_tokens || 0;
-    const totalTokens = inputTokens + outputTokens;
+    const cacheCreationTokens = response.usage?.cache_creation_input_tokens || 0;
+    const cacheReadTokens = response.usage?.cache_read_input_tokens || 0;
+    const totalTokens = inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens;
 
     // Cost estimation for Claude Sonnet 4.5 (as of 2025)
-    // Input: $3 per million tokens, Output: $15 per million tokens
-    const estimatedCost = (inputTokens / 1000000 * 3) + (outputTokens / 1000000 * 15);
+    // Input: $3 per million tokens
+    // Output: $15 per million tokens
+    // Cache writes: $3.75 per million tokens (25% more than input)
+    // Cache reads: $0.30 per million tokens (90% cheaper than input)
+    const inputCost = inputTokens / 1000000 * 3;
+    const outputCost = outputTokens / 1000000 * 15;
+    const cacheWriteCost = cacheCreationTokens / 1000000 * 3.75;
+    const cacheReadCost = cacheReadTokens / 1000000 * 0.30;
+    const estimatedCost = inputCost + outputCost + cacheWriteCost + cacheReadCost;
 
     return {
       inputTokens,
       outputTokens,
+      cacheCreationTokens,
+      cacheReadTokens,
       totalTokens,
       cost: estimatedCost,
       duration: duration / 1000 // Convert to seconds
@@ -192,13 +210,29 @@ class ClaudeClient {
   logApiUsage(response, duration) {
     const inputTokens = response.usage?.input_tokens || 0;
     const outputTokens = response.usage?.output_tokens || 0;
-    const totalTokens = inputTokens + outputTokens;
+    const cacheCreationTokens = response.usage?.cache_creation_input_tokens || 0;
+    const cacheReadTokens = response.usage?.cache_read_input_tokens || 0;
+    const totalTokens = inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens;
 
     // Cost estimation for Claude Sonnet 4.5 (as of 2025)
-    // Input: $3 per million tokens, Output: $15 per million tokens
-    const estimatedCost = (inputTokens / 1000000 * 3) + (outputTokens / 1000000 * 15);
+    const inputCost = inputTokens / 1000000 * 3;
+    const outputCost = outputTokens / 1000000 * 15;
+    const cacheWriteCost = cacheCreationTokens / 1000000 * 3.75;
+    const cacheReadCost = cacheReadTokens / 1000000 * 0.30;
+    const estimatedCost = inputCost + outputCost + cacheWriteCost + cacheReadCost;
 
     logger.info(`API Usage - Input: ${inputTokens} tokens, Output: ${outputTokens} tokens, Total: ${totalTokens} tokens`);
+
+    if (cacheCreationTokens > 0 || cacheReadTokens > 0) {
+      logger.info(`Cache - Created: ${cacheCreationTokens} tokens, Read: ${cacheReadTokens} tokens`);
+
+      // Calculate savings from cache hits
+      if (cacheReadTokens > 0) {
+        const savedCost = (cacheReadTokens / 1000000 * 3) - cacheReadCost;
+        logger.info(`Cache savings: $${savedCost.toFixed(4)} (${((savedCost / (savedCost + estimatedCost)) * 100).toFixed(1)}% reduction)`);
+      }
+    }
+
     logger.info(`Estimated cost: $${estimatedCost.toFixed(4)}, Duration: ${duration}ms`);
   }
 

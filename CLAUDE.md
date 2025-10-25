@@ -1,3 +1,33 @@
+# Development Guidelines for Claude Code
+
+This section provides instructions for Claude Code when assisting with development tasks.
+
+## Release Documentation
+
+When preparing a new release (e.g., v1.2.0), create two documentation files in the `docs/releases/` directory:
+
+### 1. Detailed Release Notes
+**File**: `docs/releases/RELEASE_NOTES_vx.x.x.md`
+- Comprehensive documentation of all changes, features, and improvements
+- Technical details, implementation notes, and migration guides
+- Code examples and configuration changes
+- No length restrictions - include all relevant information
+
+### 2. GitHub Release Changelog
+**File**: `docs/releases/RELEASE_vx.x.x_GITHUB.md`
+- Concise, user-facing changelog for GitHub releases
+- Highlights key features, fixes, and breaking changes
+- **Maximum 50 lines** - keep it scannable and focused
+- Use clear, non-technical language where possible
+- Format for easy reading (bullet points, sections)
+
+### Important
+- **Never create RELEASE*.md files in the project root**
+- All release documentation must go in `docs/releases/` directory only
+- This keeps the project root clean and organized
+
+---
+
 # Claude AI Integration Guide
 
 This document describes how Claude AI is integrated into the Logwatch AI Analyzer project and provides guidance for developers working with this codebase.

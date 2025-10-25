@@ -325,11 +325,11 @@ For issues or questions:
 
 Planned for future releases:
 
-- Custom analysis profiles (security-focused, performance-focused)
-- A/B testing for prompt variations
-- Support for 1-hour cache option
-- Enhanced multi-server orchestration tools
-- Real-time log streaming analysis
+- [ ] Custom analysis profiles (security-focused, performance-focused)
+- [ ] A/B testing for prompt variations
+- [ ] Support for 1-hour cache option
+- [ ] Enhanced multi-server orchestration tools
+- [ ] Real-time log streaming analysis
 
 ---
 

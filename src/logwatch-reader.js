@@ -1,6 +1,7 @@
 import fs from 'fs';
 import config from '../config/config.js';
 import { getLogger } from './utils/logger.js';
+import LogwatchPreprocessor from './utils/preprocessor.js';
 
 const logger = getLogger();
 
@@ -11,6 +12,8 @@ class LogwatchReader {
   constructor() {
     this.outputPath = config.logwatch.outputPath;
     this.maxSizeBytes = config.logwatch.maxSizeMB * 1024 * 1024;
+    this.preprocessingEnabled = config.preprocessing?.enabled !== false; // Default to true
+    this.preprocessor = new LogwatchPreprocessor(config.preprocessing?.maxTokens || 150000);
   }
 
   /**
@@ -47,8 +50,20 @@ class LogwatchReader {
 
     // Read file content
     try {
-      const content = fs.readFileSync(this.outputPath, 'utf8');
+      let content = fs.readFileSync(this.outputPath, 'utf8');
       logger.info(`Successfully read logwatch output (${content.length} chars)`);
+
+      // Apply preprocessing if enabled
+      if (this.preprocessingEnabled) {
+        content = this.preprocessor.preprocess(content);
+        const stats = this.preprocessor.getStats();
+
+        // Log if preprocessing was applied
+        if (stats.originalTokens > stats.processedTokens) {
+          logger.info(`Preprocessing reduced content from ${stats.originalTokens} to ${stats.processedTokens} tokens`);
+        }
+      }
+
       return content;
     } catch (error) {
       logger.error('Failed to read logwatch output file', error);

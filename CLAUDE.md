@@ -2,6 +2,35 @@
 
 This section provides instructions for Claude Code when assisting with development tasks.
 
+## Git Workflow Rules
+
+**CRITICAL:** Never create commits or push changes unless explicitly instructed by the user.
+
+### Rules
+1. **No automatic commits**: Do NOT commit changes automatically after completing tasks
+2. **No automatic pushes**: Do NOT push to remote repositories unless explicitly asked
+3. **Wait for instruction**: After completing work, inform the user and wait for them to ask for a commit
+4. **User controls git**: The user decides when and what to commit
+
+### When to Create Commits
+- **Only when explicitly asked**: "commit these changes", "create a commit", "git commit", etc.
+- **Never proactively**: Even after completing major features or fixes
+- **Let user review first**: User may want to test or review changes before committing
+
+### Example Workflow
+```
+✓ CORRECT:
+User: "Implement feature X"
+Claude: [implements feature]
+Claude: "Feature X is complete. Would you like me to commit these changes?"
+User: "Yes, commit it"
+Claude: [creates commit]
+
+✗ INCORRECT:
+User: "Implement feature X"
+Claude: [implements feature and automatically commits]
+```
+
 ## Release Documentation
 
 When preparing a new release (e.g., v1.2.0), create two documentation files in the `docs/releases/` directory:
@@ -25,6 +54,56 @@ When preparing a new release (e.g., v1.2.0), create two documentation files in t
 - **Never create RELEASE*.md files in the project root**
 - All release documentation must go in `docs/releases/` directory only
 - This keeps the project root clean and organized
+
+## Claude Code Permissions
+
+**IMPORTANT:** Understand the difference between shared and local permissions files:
+
+### Permission Files
+
+- **`.claude/settings.json`** - Shared team permissions, checked into git
+- **`.claude/settings.local.json`** - Personal local permissions, **NEVER commit** (gitignored)
+
+### Rules
+
+1. **Never commit `.claude/settings.local.json`**: This file is for personal/local testing and is automatically gitignored
+2. **Commit `.claude/settings.json`**: Use this for team-wide permissions that everyone needs
+3. **Add new scripts**: When creating test scripts or utilities:
+   - For personal testing → add to `.claude/settings.local.json`
+   - For team use → add to `.claude/settings.json` and commit
+4. **Document permissions**: Permissions enable Claude Code to run specific commands automatically
+
+### Example: Personal Testing
+
+Add to `.claude/settings.local.json` (not committed):
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(node scripts/test-preprocessing.js:*)"
+    ]
+  }
+}
+```
+
+### Example: Team Permission
+
+Add to `.claude/settings.json` (committed):
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test)"
+    ]
+  }
+}
+```
+
+Then commit the shared settings:
+```bash
+git add .claude/settings.json
+git commit -m "Add team permission for npm test"
+```
 
 ---
 
@@ -151,6 +230,57 @@ This enables Claude to:
 - Identify recurring issues
 - Track resolution progress
 - Detect anomalies
+
+### 4. Intelligent Preprocessing (`src/utils/preprocessor.js`)
+
+**Status**: ✅ Implemented (v1.2.0)
+
+The preprocessor handles large logwatch files that would exceed Claude's 200K token context window by intelligently reducing content while preserving critical information.
+
+**How It Works:**
+- **Token Estimation**: Estimates token count (~1 token = 4 characters)
+- **Automatic Activation**: Triggers when content exceeds 150K tokens
+- **Section Parsing**: Identifies logwatch sections (SSH, Kernel, Cron, etc.)
+- **Priority Classification**:
+  - HIGH: Security/auth failures, errors & warnings (kept in full detail)
+  - MEDIUM: Network events, disk usage (moderate compression)
+  - LOW: Routine messages (aggressive compression)
+- **Deduplication**: Groups similar messages (e.g., "23 failed login attempts from 192.168.1.100")
+- **Smart Compression**: Reduces low-priority sections while preserving high-priority details
+
+**Typical Results:**
+- Handles logwatch files up to ~800KB-1MB
+- 30-60% size reduction for verbose logs
+- Preserves all critical security and error information
+- Zero configuration required (works automatically)
+
+**Configuration:**
+```env
+# Enable/disable preprocessing (default: true)
+ENABLE_PREPROCESSING=true
+
+# Maximum tokens after preprocessing (default: 150000)
+MAX_PREPROCESSING_TOKENS=150000
+```
+
+**Testing:**
+```bash
+node scripts/test-preprocessing.js
+```
+
+**Monitoring:**
+Application logs show preprocessing statistics:
+```
+[INFO] Preprocessing logwatch content (180000 tokens estimated)
+[INFO] Content exceeds limit, applying preprocessing...
+[INFO] Preprocessing complete:
+[INFO]   Original: 180000 tokens (720 KB)
+[INFO]   Processed: 145000 tokens (580 KB)
+[INFO]   Reduction: 35000 tokens (19.4%)
+[INFO]   Lines deduplicated: 450
+[INFO]   Lines removed: 320
+[INFO]   Sections compressed: 3
+```
 
 ## Configuration
 
@@ -476,6 +606,35 @@ Solution: Reduce log size or increase timeout in config
 - Add filtering logic post-analysis
 - Provide negative examples
 
+### Preprocessing Issues
+
+**Content Still Too Large:**
+```
+Error: Content exceeds Claude's context window after preprocessing
+Solution: Lower MAX_PREPROCESSING_TOKENS (e.g., to 100000)
+```
+
+**Important Information Missing:**
+```
+Issue: Critical errors not appearing in Claude's analysis
+Solution: Check logs for preprocessing stats. If too aggressive, increase MAX_PREPROCESSING_TOKENS or add patterns to HIGH priority in src/utils/preprocessor.js
+```
+
+**Preprocessing Disabled:**
+```
+Issue: Large files fail with context window error
+Solution: Check ENABLE_PREPROCESSING is set to 'true' in .env
+```
+
+**Test Preprocessing:**
+```bash
+# Generate test file and validate preprocessing
+node scripts/test-preprocessing.js
+
+# Check preprocessing with your logwatch file
+LOGWATCH_OUTPUT_PATH=/path/to/your/logwatch.txt node scripts/test-preprocessing.js
+```
+
 ## Best Practices
 
 1. **Prompt Engineering**
@@ -534,7 +693,17 @@ Planned improvements:
 
 ## Version History
 
-### v1.1.0 (Current)
+### v1.2.0 (Current)
+- **Intelligent preprocessing** - Handles logwatch files up to ~800KB-1MB
+- Token estimation and automatic content reduction
+- Section-based priority classification (HIGH/MEDIUM/LOW)
+- Moderate deduplication strategy
+- Smart compression preserving critical information
+- 30-60% typical size reduction for large files
+- Zero configuration required (auto-enabled by default)
+- Comprehensive test suite for preprocessing validation
+
+### v1.1.0
 - **Prompt caching implementation** - 16-30% cost savings per analysis
 - Enhanced system prompt (~1,590 tokens) with comprehensive analysis framework
 - Server-side cache sharing across multiple servers

@@ -35,6 +35,12 @@ class Config {
       maxSizeMB: parseInt(process.env.MAX_LOG_SIZE_MB) || 10
     };
 
+    this.preprocessing = {
+      enabled: process.env.ENABLE_PREPROCESSING !== 'false', // Default true, can disable with 'false'
+      maxTokens: parseInt(process.env.MAX_PREPROCESSING_TOKENS) || 150000,
+      strategy: 'moderate' // moderate deduplication strategy
+    };
+
     this.app = {
       nodeEnv: process.env.NODE_ENV || 'development',
       logLevel: process.env.LOG_LEVEL || 'info',

@@ -62,9 +62,15 @@ class Logger {
 
     const formattedMessage = this.formatMessage(level, message);
 
-    // Console output in development
-    if (process.env.NODE_ENV !== 'production') {
-      const consoleMethod = level === 'error' ? console.error : console.log;
+    // Console output: always show errors and warnings, debug/info only in development
+    const shouldOutputToConsole =
+      level === 'error' ||
+      level === 'warn' ||
+      process.env.NODE_ENV !== 'production';
+
+    if (shouldOutputToConsole) {
+      const consoleMethod = level === 'error' ? console.error :
+                           level === 'warn' ? console.warn : console.log;
       consoleMethod(formattedMessage.trim());
     }
 

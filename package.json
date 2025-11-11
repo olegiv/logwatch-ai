@@ -17,7 +17,9 @@
     "better-sqlite3": "^12.4.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
-    "grammy": "^1.38.3"
+    "grammy": "^1.38.3",
+    "https-proxy-agent": "^7.0.6",
+    "undici": "^7.16.0"
   },
   "keywords": [
     "logwatch",

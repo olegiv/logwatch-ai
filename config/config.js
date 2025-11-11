@@ -50,7 +50,30 @@ class Config {
       dataPath: join(__dirname, '..', 'data')
     };
 
+    // Proxy configuration - reads from .env first, then falls back to shell environment
+    this.proxy = this.getProxyConfig();
+
     this.validate();
+  }
+
+  /**
+   * Get proxy configuration
+   * Reads from .env variables first, then falls back to standard shell environment variables
+   * @returns {Object} Proxy configuration
+   */
+  getProxyConfig() {
+    // Try .env variables first (HTTP_PROXY, HTTPS_PROXY, NO_PROXY)
+    // Fall back to shell environment variables (http_proxy, https_proxy, no_proxy)
+    const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy || null;
+    const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy || null;
+    const noProxy = process.env.NO_PROXY || process.env.no_proxy || null;
+
+    return {
+      http: httpProxy,
+      https: httpsProxy,
+      noProxy: noProxy,
+      enabled: !!(httpProxy || httpsProxy)
+    };
   }
 
   /**

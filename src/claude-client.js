@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { ProxyAgent } from 'undici';
 import config from '../config/config.js';
 import { getLogger } from './utils/logger.js';
 import { getAnalysisPrompt } from './utils/prompts.js';
@@ -10,10 +11,28 @@ const logger = getLogger();
  */
 class ClaudeClient {
   constructor() {
-    this.client = new Anthropic({
+    const clientOptions = {
       apiKey: config.claude.apiKey,
       timeout: config.claude.timeout
-    });
+    };
+
+    // Add proxy support if configured
+    if (config.proxy.enabled) {
+      const proxyUrl = config.proxy.https || config.proxy.http;
+      const proxyAgent = new ProxyAgent(proxyUrl);
+
+      // Configure fetch to use proxy agent
+      clientOptions.fetch = async (url, init) => {
+        return fetch(url, {
+          ...init,
+          dispatcher: proxyAgent
+        });
+      };
+
+      logger.info(`Claude API client configured with proxy: ${proxyUrl}`);
+    }
+
+    this.client = new Anthropic(clientOptions);
     this.model = config.claude.model;
     this.maxTokens = config.claude.maxTokens;
     this.maxRetries = config.claude.maxRetries;

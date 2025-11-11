@@ -86,6 +86,46 @@ dist/
 └── sql-wasm.wasm             # SQLite WASM file (~1MB)
 ```
 
+### Expected Build Warnings
+
+During Step 5 (blob injection), you may see warnings like:
+
+```
+warning: Can't find string offset for section name '.note.100'
+warning: Can't find string offset for section name '.note'
+```
+
+**These warnings are informational and can be safely ignored.**
+
+#### Why These Warnings Appear
+
+- **Source**: These warnings come from LIEF (Library to Instrument Executable
+  Formats), which is postject's primary dependency
+- **Location**: LIEF's ELF binary parser when processing Node.js binary
+  sections
+- **Non-fatal**: The injection completes successfully despite the warnings
+- **Intentional**: The postject team deliberately preserved these diagnostic
+  messages for debugging purposes
+
+#### Verification
+
+Despite these warnings, your binary will work correctly. Verify by checking:
+
+```bash
+# 1. Build completes with success message
+# Look for: "💉 Injection done!" and "✓ Blob injected successfully"
+
+# 2. Binary is executable
+ls -lh dist/logwatch-ai-linux-x64
+
+# 3. Binary runs without errors
+./dist/logwatch-ai-linux-x64 --help
+```
+
+If the build completes and the binary executes, the warnings can be ignored.
+
+**Reference**: [postject issue #83](https://github.com/nodejs/postject/issues/83)
+
 ## Using the Binary
 
 ### Local Testing

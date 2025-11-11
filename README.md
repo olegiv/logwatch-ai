@@ -23,6 +23,38 @@ An automated system that analyzes logwatch reports using Claude AI and sends sum
 - Claude API key (Anthropic)
 - Telegram Bot token and chat ID
 
+## Deployment Options
+
+### Option 1: Standalone Binary (No Node.js Required)
+
+Build a standalone executable that includes Node.js runtime and all dependencies:
+
+```bash
+# Build binary
+npm install
+npm run build
+
+# Deploy
+scp dist/logwatch-ai-linux-x64 user@server:/opt/logwatch-ai/
+scp dist/sql-wasm.wasm user@server:/opt/logwatch-ai/
+scp .env user@server:/opt/logwatch-ai/
+
+# Run on target server (no Node.js needed!)
+./logwatch-ai-linux-x64
+```
+
+**Benefits:**
+- No Node.js installation required on target servers
+- Single executable file (~80-100MB)
+- Simplified deployment
+- Ideal for production servers
+
+See **[Build Documentation](docs/BUILD.md)** for detailed instructions.
+
+### Option 2: Standard Node.js Installation
+
+Traditional installation with Node.js runtime:
+
 ## Quick Start
 
 ### 1. Clone or Download
@@ -470,6 +502,16 @@ For issues, questions, or contributions:
 - Review configuration: `.env` and `config/config.js`
 
 ## Changelog
+
+### Version 1.2.0
+- **Standalone binary support** - Build single executable with Node.js SEA
+- Replaced `better-sqlite3` with `sql.js` (pure JS/WASM) for SEA compatibility
+- Added esbuild bundling configuration with --keep-names
+- Added automated build script for Linux x64 binaries
+- No Node.js required on target servers (~80-100MB standalone binary)
+- Updated all dependencies to latest stable versions
+- Comprehensive build documentation in `docs/BUILD.md`
+- Binary deployment simplifies production setup
 
 ### Version 1.1.0
 - **Prompt caching implementation** - 16-30% cost savings per analysis

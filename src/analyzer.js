@@ -32,6 +32,11 @@ async function main() {
     const logwatchReader = new LogwatchReader();
     const storage = new Storage();
 
+    // Wait for async database initialization
+    if (storage.enabled) {
+      await storage.initialize();
+    }
+
     // 2. Read logwatch output
     logger.info('Reading logwatch output...');
     const logContent = await logwatchReader.readLogwatchOutput();

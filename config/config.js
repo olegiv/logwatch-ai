@@ -5,8 +5,9 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load environment variables
-dotenv.config({ path: join(__dirname, '..', '.env') });
+// Load environment variables from .env file
+// override: true ensures .env variables take precedence over shell environment
+dotenv.config({ path: join(__dirname, '..', '.env'), override: true });
 
 /**
  * Application configuration

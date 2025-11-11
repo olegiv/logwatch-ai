@@ -36,7 +36,7 @@ export https_proxy=http://proxy.example.com:8080
 export no_proxy=localhost,127.0.0.1,.local
 ```
 
-**Note**: Both uppercase (`HTTP_PROXY`) and lowercase (`http_proxy`) variables are supported. Uppercase variables in `.env` take precedence over lowercase shell variables.
+**Note**: Both uppercase (`HTTP_PROXY`) and lowercase (`http_proxy`) variables are supported. `.env` variables **always override** shell environment variables, regardless of case.
 
 ## Proxy URL Format
 

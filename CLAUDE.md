@@ -542,8 +542,11 @@ node src/claude-client.js  # Direct Claude API test
 ### Manual Testing
 
 ```bash
-# Generate test logwatch file
-sudo logwatch --output stdout --format text --range yesterday > /tmp/test-logwatch.txt
+# Generate test logwatch file using the cron script
+sudo ./scripts/generate-logwatch.sh /tmp/test-logwatch.txt 0 yesterday
+
+# Or directly with logwatch (detail level 0-10):
+# sudo logwatch --output file --filename /tmp/test-logwatch.txt --format text --detail 5 --range yesterday
 
 # Set path in .env
 LOGWATCH_OUTPUT_PATH=/tmp/test-logwatch.txt
@@ -551,6 +554,8 @@ LOGWATCH_OUTPUT_PATH=/tmp/test-logwatch.txt
 # Run analysis
 npm start
 ```
+
+**Note:** The analyzer now expects pre-generated logwatch files and does not generate them internally. See [docs/CRON_SETUP.md](docs/CRON_SETUP.md) for production setup.
 
 ## Performance
 

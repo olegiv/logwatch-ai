@@ -18,7 +18,8 @@ An automated system that analyzes logwatch reports using Claude AI and sends sum
 
 - Ubuntu 24.04.2 LTS (or similar Linux distribution)
 - Node.js 20 or higher
-- logwatch installed (`sudo apt-get install logwatch`)
+- logwatch installed (`apt-get install logwatch`)
+- Cron for scheduled logwatch generation (see [Cron Setup](docs/CRON_SETUP.md))
 - Claude API key (Anthropic)
 - Telegram Bot token and chat ID
 
@@ -198,7 +199,7 @@ logwatch-ai/
 
 ### Automatic Execution
 
-The system runs automatically via cron at 6:00 AM daily:
+The system runs automatically via cron (default: 2:00 AM for logwatch generation, 2:15 AM for analysis):
 
 ```bash
 # View current cron jobs
@@ -208,25 +209,35 @@ crontab -l
 crontab -e
 ```
 
-**Add this line to your crontab:**
+**Set up two cron jobs:**
 
-For Linux:
-```cron
-# Logwatch AI Analyzer - Daily at 6:00 AM
-0 6 * * * cd /opt/logwatch-ai && ./scripts/generate-logwatch.sh yesterday && /usr/local/bin/node src/analyzer.js >> logs/cron.log 2>&1
+**1. Root cron job** (generates logwatch file daily at 2 AM):
+```bash
+# Edit root crontab
+sudo crontab -e
+
+# Add this line:
+0 2 * * * /opt/logwatch-ai/scripts/generate-logwatch.sh
 ```
 
-For macOS:
-```cron
-# Logwatch AI Analyzer - Daily at 6:00 AM
-0 6 * * * cd /Users/yourusername/Desktop/Projects/AI/logwatch-ai && ./scripts/generate-logwatch.sh yesterday && /usr/local/bin/node src/analyzer.js >> logs/cron.log 2>&1
+**2. User cron job** (runs analyzer at 2:15 AM, after logwatch generation):
+```bash
+# Edit your user crontab
+crontab -e
+
+# For Linux:
+15 2 * * * cd /opt/logwatch-ai && /usr/bin/node src/analyzer.js >> logs/cron.log 2>&1
+
+# For macOS:
+15 2 * * * cd /Users/yourusername/Desktop/Projects/AI/logwatch-ai && /usr/local/bin/node src/analyzer.js >> logs/cron.log 2>&1
 ```
 
 **Notes:**
 - Replace paths according to your installation directory
 - Use `which node` to find your Node.js path
-- The `generate-logwatch.sh` script handles logwatch execution and permission fixes
-- Requires passwordless sudo for logwatch (see MACOS_SETUP.md for instructions)
+- Logwatch generation MUST run as root (in root crontab)
+- Analyzer runs as your user (in user crontab), 15 minutes after generation
+- See [docs/CRON_SETUP.md](docs/CRON_SETUP.md) for detailed cron installation instructions
 
 ### Manual Execution
 
@@ -318,8 +329,10 @@ Full reports are sent when system status is worse than "Good":
 
 Generate manually:
 ```bash
-sudo logwatch --output file --filename /tmp/logwatch-output.txt --format text --range yesterday
+sudo ./scripts/generate-logwatch.sh
 ```
+
+Or follow the [Cron Setup Guide](docs/CRON_SETUP.md) to configure automated generation.
 
 Then update `LOGWATCH_OUTPUT_PATH` in `.env`
 

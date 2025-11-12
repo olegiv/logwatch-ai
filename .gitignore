@@ -34,3 +34,9 @@ test-output/
 tmp/
 temp/
 *.tmp
+
+# Build artifacts (SEA)
+dist/
+*.blob
+bundle.js
+sea-prep.blob

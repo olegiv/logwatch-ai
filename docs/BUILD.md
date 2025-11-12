@@ -1,0 +1,546 @@
+# Building Standalone Binary with Node.js SEA
+
+This document describes how to build a standalone executable binary for the Logwatch AI Analyzer using Node.js Single Executable Applications (SEA).
+
+## Overview
+
+Node.js SEA allows you to create a single executable file that includes:
+- The Node.js runtime
+- Your application code
+- All npm dependencies
+
+This enables deployment to servers without requiring Node.js to be installed.
+
+## Prerequisites
+
+### Required Software
+
+1. **Node.js 20.0.0 or higher** (22.x recommended)
+   ```bash
+   node --version  # Should be v20.0.0 or higher
+   ```
+
+2. **npm 10.0.0 or higher**
+   ```bash
+   npm --version  # Should be 10.0.0 or higher
+   ```
+
+3. **Build essentials** (for native module compilation during development)
+   ```bash
+   # Debian/Ubuntu
+   sudo apt-get install build-essential
+
+   # RHEL/CentOS/Fedora
+   sudo yum groupinstall "Development Tools"
+   ```
+
+### System Requirements
+
+- **Platform**: Linux x64 (current build configuration)
+- **Disk Space**: ~500MB for build process
+- **Memory**: 2GB RAM recommended
+
+## Build Process
+
+### Step 1: Install Dependencies
+
+```bash
+cd /opt/projects/logwatch-ai
+npm install
+```
+
+This installs:
+- Runtime dependencies (sql.js, @anthropic-ai/sdk, grammy, etc.)
+- Build tools (esbuild, postject)
+
+### Step 2: Run the Build
+
+```bash
+npm run build
+```
+
+Or directly:
+```bash
+bash scripts/build-sea.sh
+```
+
+### Build Steps Explained
+
+The build script performs the following steps:
+
+1. **Clean**: Removes previous build artifacts from `dist/`
+2. **Bundle**: Uses esbuild to bundle all JavaScript code
+3. **Generate SEA Blob**: Creates a blob file containing the bundled code
+4. **Copy Node Binary**: Copies the system Node.js binary
+5. **Inject Blob**: Uses postject to inject the blob into the binary
+6. **Set Permissions**: Makes the binary executable
+7. **Cleanup**: Removes temporary build files
+
+### Build Output
+
+After a successful build, you'll have:
+
+```
+dist/
+├── logwatch-ai-linux-x64    # Standalone binary (~80-100MB)
+└── sql-wasm.wasm             # SQLite WASM file (~1MB)
+```
+
+### Expected Build Warnings
+
+During Step 5 (blob injection), you may see warnings like:
+
+```
+warning: Can't find string offset for section name '.note.100'
+warning: Can't find string offset for section name '.note'
+```
+
+**These warnings are informational and can be safely ignored.**
+
+#### Why These Warnings Appear
+
+- **Source**: These warnings come from LIEF (Library to Instrument Executable
+  Formats), which is postject's primary dependency
+- **Location**: LIEF's ELF binary parser when processing Node.js binary
+  sections
+- **Non-fatal**: The injection completes successfully despite the warnings
+- **Intentional**: The postject team deliberately preserved these diagnostic
+  messages for debugging purposes
+
+#### Verification
+
+Despite these warnings, your binary will work correctly. Verify by checking:
+
+```bash
+# 1. Build completes with success message
+# Look for: "💉 Injection done!" and "✓ Blob injected successfully"
+
+# 2. Binary is executable
+ls -lh dist/logwatch-ai-linux-x64
+
+# 3. Binary runs without errors
+./dist/logwatch-ai-linux-x64 --help
+```
+
+If the build completes and the binary executes, the warnings can be ignored.
+
+**Reference**: [postject issue #83](https://github.com/nodejs/postject/issues/83)
+
+## Using the Binary
+
+### Local Testing
+
+```bash
+# Ensure you have .env file configured
+./dist/logwatch-ai-linux-x64
+```
+
+### Deployment
+
+#### Option 1: Copy Files Manually
+
+```bash
+# On build server
+scp dist/logwatch-ai-linux-x64 user@target:/opt/logwatch-ai/
+scp dist/sql-wasm.wasm user@target:/opt/logwatch-ai/
+scp .env user@target:/opt/logwatch-ai/
+
+# On target server
+cd /opt/logwatch-ai
+chmod +x logwatch-ai-linux-x64
+./logwatch-ai-linux-x64
+```
+
+#### Option 2: Deploy as Package
+
+```bash
+# Create deployment package
+cd /opt/projects/logwatch-ai
+mkdir -p deploy
+cp dist/logwatch-ai-linux-x64 deploy/
+cp dist/sql-wasm.wasm deploy/
+cp .env.example deploy/.env
+
+# Create tarball
+tar -czf logwatch-ai-v1.2.0-linux-x64.tar.gz deploy/
+
+# Deploy
+scp logwatch-ai-v1.2.0-linux-x64.tar.gz user@target:~/
+ssh user@target
+tar -xzf logwatch-ai-v1.2.0-linux-x64.tar.gz
+cd deploy
+# Edit .env with your configuration
+./logwatch-ai-linux-x64
+```
+
+## External Dependencies
+
+The binary is **not completely standalone**. It still requires:
+
+### Required on Target System
+
+1. **`.env` file** - API keys and configuration
+   ```
+   ANTHROPIC_API_KEY=your_key_here
+   TELEGRAM_BOT_TOKEN=your_token_here
+   TELEGRAM_CHAT_ID=your_chat_id
+   ```
+
+2. **`sql-wasm.wasm` file** - SQLite WebAssembly module (copied during build)
+
+3. **`data/` directory** - For SQLite database (created automatically)
+
+4. **`logs/` directory** - For application logs (created automatically)
+
+5. **`logwatch` command** - System log analyzer
+   ```bash
+   # Install logwatch on target system
+   sudo apt-get install logwatch  # Debian/Ubuntu
+   sudo yum install logwatch       # RHEL/CentOS
+   ```
+
+6. **Logwatch output file** - Pre-generated by cron script
+   - Default path: `/tmp/logwatch-output.txt`
+   - Configured via `LOGWATCH_OUTPUT_PATH` in `.env`
+
+### Not Required on Target System
+
+- Node.js runtime ✗
+- npm ✗
+- node_modules/ ✗
+- Source code ✗
+
+## Directory Structure
+
+### Development Environment
+
+```
+logwatch-ai/
+├── src/                    # Source code
+├── scripts/                # Build and utility scripts
+├── dist/                   # Build output (gitignored)
+├── node_modules/           # Dependencies
+├── package.json            # Dependency manifest
+├── esbuild.config.js       # Bundler configuration
+├── sea-config.json         # SEA configuration
+└── .env                    # Configuration
+```
+
+### Production Deployment (Minimal)
+
+```
+/opt/logwatch-ai/
+├── logwatch-ai-linux-x64   # Standalone binary
+├── sql-wasm.wasm           # WASM file
+├── .env                    # Configuration
+├── data/                   # Database (auto-created)
+└── logs/                   # Logs (auto-created)
+```
+
+## Troubleshooting
+
+### Build Errors
+
+#### `node: not found`
+**Problem**: Node.js not installed or not in PATH
+
+**Solution**:
+```bash
+# Install Node.js 22.x
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+#### `postject: command not found`
+**Problem**: Build dependencies not installed
+
+**Solution**:
+```bash
+npm install  # Install all dependencies including devDependencies
+```
+
+#### `Permission denied: esbuild`
+**Problem**: esbuild binary not executable
+
+**Solution**:
+```bash
+rm -rf node_modules
+npm install
+```
+
+#### `Cannot find module 'sql.js'`
+**Problem**: Dependencies not installed
+
+**Solution**:
+```bash
+npm install
+```
+
+### Runtime Errors
+
+#### `Error: Cannot find module 'sql-wasm.wasm'`
+**Problem**: WASM file not in same directory as binary
+
+**Solution**:
+```bash
+# Copy WASM file to binary directory
+cp dist/sql-wasm.wasm /path/to/binary/
+```
+
+#### `Error: Logwatch output file not found`
+**Problem**: Logwatch not generating output file
+
+**Solution**:
+```bash
+# Generate logwatch output manually
+sudo scripts/generate-logwatch.sh
+
+# Or check cron configuration
+crontab -l
+```
+
+#### `Error: ANTHROPIC_API_KEY is required`
+**Problem**: .env file missing or incomplete
+
+**Solution**:
+```bash
+# Create .env file with required variables
+cat > .env << EOF
+ANTHROPIC_API_KEY=your_key_here
+TELEGRAM_BOT_TOKEN=your_token_here
+TELEGRAM_CHAT_ID=your_chat_id
+EOF
+```
+
+## Advanced Configuration
+
+### Custom Build Targets
+
+To build for different platforms, modify `scripts/build-sea.sh`:
+
+```bash
+# For macOS
+PLATFORM="darwin"
+ARCH="arm64"
+OUTPUT_BINARY="${DIST_DIR}/logwatch-ai-macos-arm64"
+
+# For Linux ARM64
+PLATFORM="linux"
+ARCH="arm64"
+OUTPUT_BINARY="${DIST_DIR}/logwatch-ai-linux-arm64"
+```
+
+**Note**: Cross-compilation is not supported. Build on the target platform.
+
+### Optimizing Binary Size
+
+The binary is ~80-100MB. To reduce size:
+
+1. **Enable minification** in `esbuild.config.js`:
+   ```javascript
+   minify: true,
+   ```
+
+2. **Remove source maps**:
+   ```javascript
+   sourcemap: false,
+   ```
+
+3. **Strip Node.js binary**:
+   ```bash
+   strip dist/logwatch-ai-linux-x64
+   ```
+
+### Build Flags
+
+Modify `esbuild.config.js` for custom builds:
+
+```javascript
+// Keep names for debugging (required for SEA)
+keepNames: true,
+
+// Enable source maps for debugging
+sourcemap: true,
+
+// Minify for production
+minify: true,
+
+// Target specific Node version
+target: 'node22',
+```
+
+## Performance
+
+### Build Time
+
+- Clean build: ~10-15 seconds
+- Incremental: ~5-8 seconds
+
+### Binary Size
+
+- Base Node.js: ~60MB
+- Application code: ~15-20MB
+- Total: ~80-100MB
+
+### Runtime Performance
+
+No performance difference compared to running with `node src/analyzer.js`:
+- Same V8 engine
+- Same optimization level
+- No additional overhead
+
+## Security Considerations
+
+### Binary Distribution
+
+- The binary contains your bundled application code
+- Source code is visible with tools like `strings`
+- **Do not include secrets in code** - use `.env` file
+- Secrets in `.env` are not bundled into the binary
+
+### WASM File Security
+
+- The `sql-wasm.wasm` file is the official SQLite WASM build
+- Verify integrity: `sha256sum dist/sql-wasm.wasm`
+- Source: https://github.com/sql-js/sql.js
+
+### Binary Integrity
+
+Verify binary hasn't been tampered with:
+
+```bash
+# Generate checksum after build
+sha256sum dist/logwatch-ai-linux-x64 > logwatch-ai.sha256
+
+# Verify on target system
+sha256sum -c logwatch-ai.sha256
+```
+
+## Continuous Integration
+
+### GitHub Actions Example
+
+```yaml
+name: Build Binary
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+      - run: npm install
+      - run: npm run build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: logwatch-ai-linux-x64
+          path: dist/
+```
+
+### GitLab CI Example
+
+```yaml
+build:
+  image: node:22
+  script:
+    - npm install
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+```
+
+## Version Management
+
+### Versioning
+
+Update version in `package.json`:
+
+```json
+{
+  "version": "1.2.0"
+}
+```
+
+### Release Process
+
+1. Update version: `npm version patch|minor|major`
+2. Build binary: `npm run build`
+3. Test binary: `./dist/logwatch-ai-linux-x64`
+4. Create release archive:
+   ```bash
+   tar -czf logwatch-ai-v$(node -p "require('./package.json').version")-linux-x64.tar.gz \
+     -C dist/ logwatch-ai-linux-x64 sql-wasm.wasm
+   ```
+5. Upload to releases page
+
+## Comparison: Binary vs Node.js
+
+| Feature | Binary (SEA) | Node.js |
+|---------|--------------|---------|
+| Node.js required | ✗ No | ✓ Yes |
+| npm required | ✗ No | ✓ Yes |
+| node_modules required | ✗ No | ✓ Yes |
+| Size | ~80-100MB | ~60MB + 65MB |
+| Startup time | Same | Same |
+| Performance | Same | Same |
+| Deployment | Single file (+WASM) | Full directory |
+| Updates | Rebuild binary | Update code |
+
+## FAQ
+
+### Q: Can I use this on Windows?
+A: The current build script targets Linux. For Windows support, modify `scripts/build-sea.sh` to handle Windows-specific postject commands.
+
+### Q: Why is the binary so large?
+A: The binary includes the entire Node.js runtime (~60MB) plus bundled application code (~20MB). This is normal for SEA binaries.
+
+### Q: Can I cross-compile for different platforms?
+A: No, Node.js SEA doesn't support cross-compilation. Build on the target platform or use Docker with the target platform.
+
+### Q: Does this work with native Node.js modules?
+A: We replaced `better-sqlite3` (native) with `sql.js` (pure JS/WASM) specifically for SEA compatibility. Native modules are not supported in SEA.
+
+### Q: Can I update the application without rebuilding?
+A: No, the code is embedded in the binary. To update, you must rebuild and redeploy the binary.
+
+### Q: Is the binary portable across Linux distributions?
+A: Generally yes, as long as:
+- The distribution has compatible libc (glibc or musl)
+- The kernel supports the binary's requirements
+- Test on target distribution before deploying
+
+### Q: How do I debug the binary?
+A: Enable debug logging in `.env`:
+```
+LOG_LEVEL=debug
+```
+Logs are written to `logs/app.log`.
+
+## Resources
+
+- [Node.js SEA Documentation](https://nodejs.org/api/single-executable-applications.html)
+- [esbuild Documentation](https://esbuild.github.io/)
+- [postject Documentation](https://github.com/nodejs/postject)
+- [sql.js Documentation](https://github.com/sql-js/sql.js)
+
+## Support
+
+For build issues:
+1. Check this documentation
+2. Check logs in `logs/app.log`
+3. Open an issue on GitHub
+4. Include build output and system information
+
+---
+
+**Last Updated**: November 2025
+**Version**: 1.2.0

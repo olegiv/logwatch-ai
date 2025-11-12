@@ -5,7 +5,6 @@
  * Main entry point for the analyzer
  */
 
-import { spawn } from 'child_process';
 import config from '../config/config.js';
 import { getLogger } from './utils/logger.js';
 import ClaudeClient from './claude-client.js';
@@ -14,58 +13,6 @@ import LogwatchReader from './logwatch-reader.js';
 import Storage from './storage.js';
 
 const logger = getLogger(null, config.app.logLevel);
-
-/**
- * Generate logwatch report if not exists
- * @returns {Promise<boolean>} Success status
- */
-async function generateLogwatchReport() {
-  logger.info('Generating logwatch report...');
-
-  return new Promise((resolve) => {
-    const logwatchCmd = spawn('sudo', [
-      'logwatch',
-      '--output', 'file',
-      '--filename', config.logwatch.outputPath,
-      '--format', 'text',
-      '--range', 'yesterday'
-    ]);
-
-    let stderr = '';
-
-    logwatchCmd.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    logwatchCmd.on('close', (code) => {
-      if (code === 0) {
-        logger.info('Logwatch report generated successfully');
-
-        // Fix permissions so the analyzer can read the file
-        logger.info('Fixing file permissions...');
-        const chmodCmd = spawn('sudo', ['chmod', '644', config.logwatch.outputPath]);
-
-        chmodCmd.on('close', (chmodCode) => {
-          if (chmodCode === 0) {
-            logger.info('File permissions updated');
-            resolve(true);
-          } else {
-            logger.warn('Failed to update permissions, but continuing anyway');
-            resolve(true);
-          }
-        });
-      } else {
-        logger.error(`Logwatch generation failed with code ${code}: ${stderr}`);
-        resolve(false);
-      }
-    });
-
-    logwatchCmd.on('error', (error) => {
-      logger.error('Failed to spawn logwatch process', error);
-      resolve(false);
-    });
-  });
-}
 
 /**
  * Main analysis function
@@ -85,24 +32,23 @@ async function main() {
     const logwatchReader = new LogwatchReader();
     const storage = new Storage();
 
+    // Wait for async database initialization
+    if (storage.enabled) {
+      await storage.initialize();
+    }
+
     // 2. Read logwatch output
     logger.info('Reading logwatch output...');
-    let logContent = await logwatchReader.readLogwatchOutput();
+    const logContent = await logwatchReader.readLogwatchOutput();
 
-    // 3. If no logwatch file, try to generate it
+    // 3. Validate that we have content
     if (!logContent) {
-      logger.info('No logwatch output found, attempting to generate...');
-      const generated = await generateLogwatchReport();
-
-      if (generated) {
-        // Wait a moment for file to be written
-        await sleep(2000);
-        logContent = await logwatchReader.readLogwatchOutput();
-      }
-
-      if (!logContent) {
-        throw new Error('Could not read or generate logwatch output');
-      }
+      throw new Error(
+        `Logwatch output file not found or empty: ${config.logwatch.outputPath}\n` +
+        'Please ensure the logwatch cron job is configured correctly.\n' +
+        'See docs/CRON_SETUP.md for installation instructions, or run:\n' +
+        '  sudo scripts/generate-logwatch.sh'
+      );
     }
 
     // 4. Validate content
@@ -184,15 +130,6 @@ async function main() {
 
     process.exit(1);
   }
-}
-
-/**
- * Sleep helper function
- * @param {number} ms - Milliseconds to sleep
- * @returns {Promise<void>}
- */
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // Handle uncaught errors

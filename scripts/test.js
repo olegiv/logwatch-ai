@@ -318,7 +318,7 @@ async function testLogwatch() {
       execSync('which logwatch', { stdio: 'pipe' });
       printResult('Logwatch installed', true);
     } catch (error) {
-      printResult('Logwatch installed', false, 'Install with: sudo apt-get install logwatch');
+      printResult('Logwatch installed', false, 'Install with: apt-get install logwatch (Debian/Ubuntu) or yum install logwatch (RHEL/CentOS)');
       return;
     }
 
@@ -338,7 +338,8 @@ async function testLogwatch() {
       }
     } else {
       printWarning('Logwatch output file', `Not found at ${config.logwatch.outputPath}`);
-      console.log('  Generate with: sudo logwatch --output file --filename /tmp/logwatch-output.txt');
+      console.log('  Generate with: ./scripts/generate-logwatch.sh');
+      console.log('  Or set up cron job: See docs/CRON_SETUP.md');
     }
 
   } catch (error) {

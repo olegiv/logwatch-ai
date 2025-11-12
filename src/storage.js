@@ -1,30 +1,32 @@
-import Database from 'better-sqlite3';
+import initSqlJs from 'sql.js';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import config from '../config/config.js';
 import { getLogger } from './utils/logger.js';
 import { format } from 'date-fns';
 
 const logger = getLogger();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * SQLite database handler for storing analysis summaries
+ * Uses sql.js (pure JavaScript/WASM) for SEA compatibility
  */
 class Storage {
   constructor() {
     this.dbPath = config.app.databasePath;
     this.enabled = config.app.enableDatabase;
     this.db = null;
-
-    if (this.enabled) {
-      this.initialize();
-    }
+    this.SQL = null;
+    // Note: initialize() must be called explicitly due to async nature
   }
 
   /**
    * Initialize database connection and schema
    */
-  initialize() {
+  async initialize() {
     try {
       // Ensure data directory exists
       const dbDir = path.dirname(this.dbPath);
@@ -32,11 +34,39 @@ class Storage {
         fs.mkdirSync(dbDir, { recursive: true });
       }
 
-      // Open database connection
-      this.db = new Database(this.dbPath);
+      // Initialize sql.js with WASM
+      this.SQL = await initSqlJs({
+        // Locate WASM file for SEA binary deployment
+        locateFile: file => {
+          // For SEA binary: WASM file is in the same directory as the binary
+          const binaryDir = path.dirname(process.execPath);
+          const seaWasmPath = path.join(binaryDir, file);
 
-      // Enable WAL mode for better concurrency
-      this.db.pragma('journal_mode = WAL');
+          // Check if running as SEA binary (WASM in binary directory)
+          if (fs.existsSync(seaWasmPath)) {
+            return seaWasmPath;
+          }
+
+          // Fallback for development: check node_modules
+          const devWasmPath = path.join(__dirname, '../node_modules/sql.js/dist', file);
+          if (fs.existsSync(devWasmPath)) {
+            return devWasmPath;
+          }
+
+          // Final fallback: current working directory
+          return path.join(process.cwd(), file);
+        }
+      });
+
+      // Load existing database or create new one
+      if (fs.existsSync(this.dbPath)) {
+        const buffer = fs.readFileSync(this.dbPath);
+        this.db = new this.SQL.Database(buffer);
+        logger.debug(`Loaded existing database: ${this.dbPath}`);
+      } else {
+        this.db = new this.SQL.Database();
+        logger.debug('Created new in-memory database');
+      }
 
       // Create schema
       this.createSchema();
@@ -69,10 +99,28 @@ class Storage {
       CREATE INDEX IF NOT EXISTS idx_date ON summaries(date)
     `;
 
-    this.db.exec(createTableSQL);
-    this.db.exec(createIndexSQL);
+    this.db.run(createTableSQL);
+    this.db.run(createIndexSQL);
+
+    // Save to disk after schema creation
+    this.saveToFile();
 
     logger.debug('Database schema created/verified');
+  }
+
+  /**
+   * Save in-memory database to file
+   */
+  saveToFile() {
+    if (!this.db) return;
+
+    try {
+      const data = this.db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(this.dbPath, buffer);
+    } catch (error) {
+      logger.error('Failed to save database to file', error);
+    }
   }
 
   /**
@@ -90,23 +138,29 @@ class Storage {
       const date = format(new Date(), 'yyyy-MM-dd');
       const timestamp = Math.floor(Date.now() / 1000);
 
-      const stmt = this.db.prepare(`
-        INSERT INTO summaries (date, timestamp, summary, critical_count, warning_count, raw_analysis)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
-
-      const result = stmt.run(
-        date,
-        timestamp,
-        analysis.summary || '',
-        analysis.criticalIssues?.length || 0,
-        analysis.warnings?.length || 0,
-        JSON.stringify(analysis)
+      this.db.run(
+        `INSERT INTO summaries (date, timestamp, summary, critical_count, warning_count, raw_analysis)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          date,
+          timestamp,
+          analysis.summary || '',
+          analysis.criticalIssues?.length || 0,
+          analysis.warnings?.length || 0,
+          JSON.stringify(analysis)
+        ]
       );
 
-      logger.info(`Analysis saved to database (ID: ${result.lastInsertRowid})`);
+      // Get last inserted ID
+      const result = this.db.exec('SELECT last_insert_rowid() as id');
+      const insertId = result[0]?.values[0]?.[0];
 
-      return result.lastInsertRowid;
+      // Save to disk after insert
+      this.saveToFile();
+
+      logger.info(`Analysis saved to database (ID: ${insertId})`);
+
+      return insertId;
     } catch (error) {
       logger.error('Failed to save summary to database', error);
       return null;
@@ -128,13 +182,19 @@ class Storage {
       cutoffDate.setDate(cutoffDate.getDate() - days);
       const cutoffTimestamp = Math.floor(cutoffDate.getTime() / 1000);
 
-      const stmt = this.db.prepare(`
-        SELECT * FROM summaries
-        WHERE timestamp >= ?
-        ORDER BY timestamp DESC
-      `);
+      const result = this.db.exec(
+        `SELECT * FROM summaries
+         WHERE timestamp >= ?
+         ORDER BY timestamp DESC`,
+        [cutoffTimestamp]
+      );
 
-      const summaries = stmt.all(cutoffTimestamp);
+      if (!result.length) {
+        return [];
+      }
+
+      // Convert sql.js result format to objects
+      const summaries = this.resultToObjects(result[0]);
 
       logger.debug(`Retrieved ${summaries.length} summaries from last ${days} days`);
 
@@ -143,6 +203,25 @@ class Storage {
       logger.error('Failed to retrieve recent summaries', error);
       return [];
     }
+  }
+
+  /**
+   * Convert sql.js result to array of objects
+   * @param {Object} result - sql.js result object
+   * @returns {Array} Array of row objects
+   */
+  resultToObjects(result) {
+    if (!result || !result.columns || !result.values) {
+      return [];
+    }
+
+    return result.values.map(row => {
+      const obj = {};
+      result.columns.forEach((col, index) => {
+        obj[col] = row[index];
+      });
+      return obj;
+    });
   }
 
   /**
@@ -227,21 +306,29 @@ class Storage {
       cutoffDate.setDate(cutoffDate.getDate() - days);
       const cutoffTimestamp = Math.floor(cutoffDate.getTime() / 1000);
 
-      const stmt = this.db.prepare(`
-        DELETE FROM summaries
-        WHERE timestamp < ?
-      `);
+      // Get count before deletion
+      const beforeResult = this.db.exec('SELECT COUNT(*) as count FROM summaries');
+      const countBefore = beforeResult[0]?.values[0]?.[0] || 0;
 
-      const result = stmt.run(cutoffTimestamp);
+      // Delete old entries
+      this.db.run(
+        `DELETE FROM summaries WHERE timestamp < ?`,
+        [cutoffTimestamp]
+      );
 
-      if (result.changes > 0) {
-        logger.info(`Cleaned up ${result.changes} old database entries (older than ${days} days)`);
+      // Get count after deletion
+      const afterResult = this.db.exec('SELECT COUNT(*) as count FROM summaries');
+      const countAfter = afterResult[0]?.values[0]?.[0] || 0;
+
+      const deletedCount = countBefore - countAfter;
+
+      if (deletedCount > 0) {
+        // Vacuum to reclaim space (sql.js doesn't support VACUUM, but we can recreate)
+        this.saveToFile();
+        logger.info(`Cleaned up ${deletedCount} old database entries (older than ${days} days)`);
       }
 
-      // Vacuum database to reclaim space
-      this.db.exec('VACUUM');
-
-      return result.changes;
+      return deletedCount;
     } catch (error) {
       logger.error('Failed to cleanup old entries', error);
       return 0;
@@ -258,14 +345,19 @@ class Storage {
     }
 
     try {
-      const totalRows = this.db.prepare('SELECT COUNT(*) as count FROM summaries').get();
-      const oldestEntry = this.db.prepare('SELECT date FROM summaries ORDER BY timestamp ASC LIMIT 1').get();
-      const newestEntry = this.db.prepare('SELECT date FROM summaries ORDER BY timestamp DESC LIMIT 1').get();
+      const totalResult = this.db.exec('SELECT COUNT(*) as count FROM summaries');
+      const totalRows = totalResult[0]?.values[0]?.[0] || 0;
+
+      const oldestResult = this.db.exec('SELECT date FROM summaries ORDER BY timestamp ASC LIMIT 1');
+      const oldestDate = oldestResult[0]?.values[0]?.[0];
+
+      const newestResult = this.db.exec('SELECT date FROM summaries ORDER BY timestamp DESC LIMIT 1');
+      const newestDate = newestResult[0]?.values[0]?.[0];
 
       return {
-        totalEntries: totalRows.count,
-        oldestDate: oldestEntry?.date,
-        newestDate: newestEntry?.date
+        totalEntries: totalRows,
+        oldestDate: oldestDate,
+        newestDate: newestDate
       };
     } catch (error) {
       logger.error('Failed to get database stats', error);
@@ -278,6 +370,8 @@ class Storage {
    */
   close() {
     if (this.db) {
+      // Save to disk before closing
+      this.saveToFile();
       this.db.close();
       logger.info('Database connection closed');
     }

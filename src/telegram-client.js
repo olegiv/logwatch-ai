@@ -1,4 +1,5 @@
 import { Bot } from 'grammy';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import config from '../config/config.js';
 import { getLogger } from './utils/logger.js';
 import { format } from 'date-fns';
@@ -11,7 +12,20 @@ const logger = getLogger();
  */
 class TelegramClient {
   constructor() {
-    this.bot = new Bot(config.telegram.botToken);
+    const botOptions = {};
+
+    // Add proxy support if configured
+    if (config.proxy.enabled) {
+      const proxyUrl = config.proxy.https || config.proxy.http;
+      botOptions.client = {
+        baseFetchConfig: {
+          agent: new HttpsProxyAgent(proxyUrl)
+        }
+      };
+      logger.info(`Telegram bot configured with proxy: ${proxyUrl}`);
+    }
+
+    this.bot = new Bot(config.telegram.botToken, botOptions);
     this.archiveChannelId = config.telegram.archiveChannelId;
     this.alertsChannelId = config.telegram.alertsChannelId;
     this.maxMessageLength = config.telegram.maxMessageLength;

@@ -290,7 +290,42 @@ Application logs show preprocessing statistics:
 # Claude API Configuration
 ANTHROPIC_API_KEY=sk-ant-xxxxx              # Your Anthropic API key
 CLAUDE_MODEL=claude-sonnet-4-5-20250929     # Model to use
+
+# Network Proxy Support (optional)
+HTTP_PROXY=http://proxy.example.com:8080    # HTTP proxy for API requests
+HTTPS_PROXY=https://proxy.example.com:8080  # HTTPS proxy for API requests
 ```
+
+### Network Proxy Support
+
+**Status**: ✅ Implemented
+
+The application supports network proxies for Claude API and Telegram API requests.
+
+**How It Works:**
+- Environment variables (`HTTP_PROXY`, `HTTPS_PROXY`) configure proxy settings
+- Variables from `.env` file **override** shell environment variables
+- Proxy agents are automatically configured for both Claude and Telegram clients
+- Supports both HTTP and HTTPS proxies
+
+**Configuration:**
+```env
+# In .env file
+HTTP_PROXY=http://proxy.example.com:8080
+HTTPS_PROXY=https://proxy.example.com:8080
+```
+
+**Use Cases:**
+- Corporate networks requiring proxy for outbound connections
+- Development environments with network restrictions
+- Testing with local proxy tools (Charles, Fiddler, mitmproxy)
+- Multi-region deployments with regional proxies
+
+**Technical Details:**
+- Uses `https-proxy-agent` for HTTPS connections
+- Automatic proxy configuration based on environment variables
+- No code changes needed - pure configuration
+- Works with authentication proxies (user:pass@host:port format)
 
 ### Model Selection
 
@@ -542,14 +577,299 @@ node src/claude-client.js  # Direct Claude API test
 ### Manual Testing
 
 ```bash
-# Generate test logwatch file
-sudo logwatch --output stdout --format text --range yesterday > /tmp/test-logwatch.txt
+# Generate test logwatch file using the cron script
+sudo ./scripts/generate-logwatch.sh /tmp/test-logwatch.txt 0 yesterday
+
+# Or directly with logwatch (detail level 0-10):
+# sudo logwatch --output file --filename /tmp/test-logwatch.txt --format text --detail 5 --range yesterday
 
 # Set path in .env
 LOGWATCH_OUTPUT_PATH=/tmp/test-logwatch.txt
 
 # Run analysis
 npm start
+```
+
+**Note:** The analyzer now expects pre-generated logwatch files and does not generate them internally. See [docs/CRON_SETUP.md](docs/CRON_SETUP.md) for production setup.
+
+### Logwatch Generation
+
+**Status**: ✅ Cron-based generation (v1.2.0)
+
+The application uses a **two-stage cron setup** for automated operation:
+
+**Stage 1: Logwatch Generation (Root Cron)**
+```bash
+# Runs as root at 2:00 AM daily
+0 2 * * * /opt/logwatch-ai/scripts/generate-logwatch.sh
+```
+
+The generation script (`scripts/generate-logwatch.sh`):
+- Runs logwatch with appropriate permissions
+- Outputs to `/tmp/logwatch-output.txt` (configurable)
+- Must run as root (logwatch requirement)
+- Generates comprehensive system log summary
+
+**Stage 2: Analysis (User Cron)**
+```bash
+# Runs as regular user at 2:15 AM (15 min after generation)
+15 2 * * * cd /opt/logwatch-ai && node src/analyzer.js >> logs/cron.log 2>&1
+```
+
+The analyzer:
+- Reads the pre-generated logwatch file
+- Analyzes with Claude AI
+- Stores results in database
+- Sends notifications via Telegram
+
+**Why Separation?**
+- **Security**: Analysis runs as regular user (principle of least privilege)
+- **Reliability**: Logwatch generation doesn't fail if JS code has issues
+- **Flexibility**: Can test analysis without regenerating logwatch
+- **Maintainability**: Clear separation of concerns
+
+**Configuration:**
+```env
+LOGWATCH_OUTPUT_PATH=/tmp/logwatch-output.txt
+```
+
+**Manual Generation:**
+```bash
+sudo ./scripts/generate-logwatch.sh /tmp/test-logwatch.txt 0 yesterday
+```
+
+Arguments:
+- Path to output file
+- Detail level (0-10)
+- Date range (yesterday, today, all)
+
+See [docs/CRON_SETUP.md](docs/CRON_SETUP.md) for detailed installation instructions.
+
+## Standalone Binary Build System
+
+**Status**: ✅ Implemented (v1.2.0)
+
+The project supports building standalone executables using Node.js Single Executable Applications (SEA), enabling deployment without Node.js installed on target systems.
+
+### Overview
+
+**What is SEA?**
+- Node.js feature for creating standalone executables
+- Bundles Node.js runtime + application code + dependencies
+- Single binary file (~120MB for Linux x64)
+- No external dependencies (except WASM file and .env)
+
+**Benefits:**
+- **Simplified Deployment**: Copy binary + WASM + .env to any Linux x64 server
+- **No Runtime Required**: Target systems don't need Node.js installed
+- **Version Consistency**: Binary includes specific Node.js version
+- **Production Ready**: Ideal for servers without development tools
+
+### Build Process
+
+```bash
+# Build binary
+npm install
+npm run build
+
+# Output
+dist/
+├── logwatch-ai-linux-x64    # Standalone binary (120MB)
+└── sql-wasm.wasm             # SQLite WASM (645KB)
+```
+
+**Build Steps:**
+1. **Bundle**: esbuild combines all JavaScript code (CommonJS format)
+2. **Generate Blob**: Node.js creates SEA blob from bundle
+3. **Inject**: postject embeds blob into Node.js binary copy
+4. **Package**: Results in single executable
+
+**Build Time:** ~15-20 seconds
+
+### Technical Implementation
+
+**Key Technologies:**
+- **esbuild**: Fast JavaScript bundler with `--keep-names` flag
+- **postject**: Injects resources into executable formats
+- **sql.js**: Pure JavaScript/WASM SQLite (replaces better-sqlite3)
+- **CommonJS**: Required format for Node.js SEA
+
+**Database Migration:**
+```javascript
+// Before (v1.1.0): Native module
+import Database from 'better-sqlite3';
+
+// After (v1.2.0): Pure JS/WASM
+import initSqlJs from 'sql.js';
+```
+
+**Why sql.js?**
+- Node.js SEA has limited native addon support
+- sql.js is pure JavaScript + WASM (fully bundleable)
+- Same SQLite functionality, slight performance trade-off
+- Backward compatible with existing databases
+
+**Import.meta Polyfill:**
+```javascript
+// SEA uses CommonJS, but code uses ESM import.meta.url
+// esbuild injects polyfill:
+var import_45meta_46url = typeof __filename !== 'undefined' ? 'file://' + __filename : '';
+```
+
+### Build Configuration Files
+
+**esbuild.config.js:**
+```javascript
+{
+  format: 'cjs',              // CommonJS required for SEA
+  keepNames: true,            // SEA requirement
+  define: {
+    'import.meta.url': 'import_45meta_46url'  // Polyfill
+  }
+}
+```
+
+**sea-config.json:**
+```json
+{
+  "main": "dist/bundle.js",
+  "output": "dist/sea-prep.blob",
+  "disableExperimentalSEAWarning": true,
+  "useCodeCache": false
+}
+```
+
+**scripts/build-sea.sh:**
+- 8-step automated build process
+- Platform detection (Linux/macOS)
+- Error handling and validation
+- Size reporting and verification
+
+### Deployment
+
+**Standard Node.js (Development):**
+```bash
+git clone <repo>
+npm install
+npm start
+```
+
+**Standalone Binary (Production):**
+```bash
+# Copy files
+scp dist/logwatch-ai-linux-x64 server:/opt/logwatch-ai/
+scp dist/sql-wasm.wasm server:/opt/logwatch-ai/
+scp .env server:/opt/logwatch-ai/
+
+# Run (no Node.js needed!)
+./logwatch-ai-linux-x64
+```
+
+**Still Required:**
+- `.env` file with configuration
+- `sql-wasm.wasm` in same directory as binary
+- `data/` and `logs/` directories (auto-created)
+- `logwatch` installed on system
+
+### Build Warnings
+
+During build, you may see postject warnings:
+```
+warning: Can't find string offset for section name '.note.100'
+```
+
+**These are informational and can be safely ignored.**
+- Source: LIEF library (postject dependency)
+- Intentionally preserved for diagnostics
+- Non-fatal - binary works correctly
+
+See [docs/BUILD.md](docs/BUILD.md) for comprehensive build documentation.
+
+### Platform Support
+
+**Currently Supported:**
+- Linux x64 (tested on Ubuntu 24.04)
+
+**Potential Support:**
+- Linux ARM64 (requires cross-compilation)
+- macOS (x64 + ARM64)
+- Windows x64
+
+**Note:** Cross-compilation not supported - build on target platform.
+
+### Dependencies
+
+**Runtime Dependencies (bundled):**
+- @anthropic-ai/sdk: ^0.68.0
+- grammy: ^1.38.3
+- sql.js: ^1.13.0 (replaces better-sqlite3)
+- date-fns: ^4.1.0
+- dotenv: ^17.2.3
+- https-proxy-agent: ^7.0.6
+- undici: ^7.16.0
+
+**Build Dependencies (dev only):**
+- esbuild: ^0.27.0
+- postject: ^1.0.0-alpha.6
+
+**Dependency Overrides:**
+```json
+{
+  "tr46": "^5.0.0",        // Fixes punycode deprecation
+  "whatwg-url": "^14.0.0"   // Uses userland punycode
+}
+```
+
+### Build Scripts
+
+**package.json:**
+```json
+{
+  "scripts": {
+    "build:bundle": "node esbuild.config.js",
+    "build:sea": "bash scripts/build-sea.sh",
+    "build": "npm run build:sea"
+  }
+}
+```
+
+### Testing Binary
+
+```bash
+# Verify build succeeded
+ls -lh dist/logwatch-ai-linux-x64
+
+# Test execution
+./dist/logwatch-ai-linux-x64
+
+# Expected: Loads .env, initializes components
+# Should see dotenv message and no errors
+```
+
+### Troubleshooting
+
+**WASM file not found:**
+```
+Error: ENOENT: no such file or directory, open 'sql-wasm.wasm'
+Solution: Copy sql-wasm.wasm to same directory as binary
+```
+
+**Binary won't execute:**
+```bash
+# Check permissions
+chmod +x dist/logwatch-ai-linux-x64
+
+# Check architecture
+file dist/logwatch-ai-linux-x64
+# Should show: ELF 64-bit LSB executable, x86-64
+```
+
+**Build fails:**
+```bash
+# Clean and rebuild
+rm -rf dist node_modules
+npm install
+npm run build
 ```
 
 ## Performance
@@ -683,6 +1003,8 @@ When modifying Claude integration:
 Planned improvements:
 
 - [x] Implement prompt caching for cost reduction (✓ Completed in v1.1.0)
+- [x] Standalone binary build system (✓ Completed in v1.2.0)
+- [x] Network proxy support (✓ Completed in v1.2.0)
 - [ ] Add support for Claude 4 Opus for deeper analysis
 - [ ] Create custom analysis profiles (security-focused, performance-focused)
 - [ ] Implement A/B testing for prompt variations
@@ -690,18 +1012,51 @@ Planned improvements:
 - [ ] Support for multiple logwatch instances
 - [ ] Real-time analysis of streaming logs
 - [ ] Integration with incident response workflows
+- [ ] Multi-platform binary builds (ARM64, macOS, Windows)
+- [ ] Docker containerization
+- [ ] Web dashboard for analysis history
 
 ## Version History
 
 ### v1.2.0 (Current)
-- **Intelligent preprocessing** - Handles logwatch files up to ~800KB-1MB
+
+**Standalone Binary Build System:**
+- Node.js SEA (Single Executable Applications) support
+- Build standalone binaries with no Node.js required on target systems
+- Replace better-sqlite3 with sql.js (pure JS/WASM) for SEA compatibility
+- esbuild bundling with --keep-names flag
+- CommonJS format with import.meta polyfill
+- Automated build script for Linux x64 (~120MB binaries)
+- Comprehensive build documentation in docs/BUILD.md
+
+**Intelligent Preprocessing:**
+- Handles logwatch files up to ~800KB-1MB
 - Token estimation and automatic content reduction
 - Section-based priority classification (HIGH/MEDIUM/LOW)
 - Moderate deduplication strategy
 - Smart compression preserving critical information
 - 30-60% typical size reduction for large files
 - Zero configuration required (auto-enabled by default)
-- Comprehensive test suite for preprocessing validation
+
+**Infrastructure Improvements:**
+- Network proxy support (HTTP_PROXY, HTTPS_PROXY)
+- Environment variables from .env override shell environment
+- Cron-based logwatch generation (two-stage setup)
+- Removed sudo from JavaScript code
+- Security: analyzer runs as regular user
+
+**Dependency Updates:**
+- Updated all dependencies to latest stable versions
+- Fixed punycode deprecation via npm overrides
+- tr46: 0.0.3 → 5.1.1 (userland punycode)
+- whatwg-url: 5.0.0 → 14.2.0
+- @anthropic-ai/sdk: 0.68.0 (latest)
+
+**Documentation:**
+- Binary build and deployment guide
+- Proxy configuration examples
+- Cron setup documentation
+- Expected build warnings explanation
 
 ### v1.1.0
 - **Prompt caching implementation** - 16-30% cost savings per analysis
